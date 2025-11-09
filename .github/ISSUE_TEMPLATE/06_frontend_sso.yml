@@ -1,33 +1,79 @@
 ﻿name: "Étape 6 – Frontend SSO (Login & Register)"
-description: "Mise en place du front SSO avec formulaires d'inscription et de connexion"
-title: "✨ Étape 6 – Implémenter le front SSO (Login / Register)"
-labels: ["frontend", "sso", "nextjs", "ui"]
+description: "Implémenter l'interface SSO : pages /register et /login, connexion au backend, stockage du JWT."
+title: "✨ [Étape 6] Frontend SSO — Login / Register"
+labels:
+  - frontend
+  - sso
+  - nextjs
+  - ui
 assignees:
-  - louis
-  - copilote
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
 body:
   - type: markdown
     attributes:
       value: |
         ## 🎯 Objectif
-        Créer une interface Next.js pour permettre à un utilisateur de s’inscrire et se connecter via le backend SSO.
+        Créer une interface Next.js simple et sécurisée pour l'inscription et la connexion des utilisateurs,
+        connecter le front au backend SSO et gérer le token JWT côté client.
 
+  - type: markdown
+    attributes:
+      value: |
         ## 🧩 Stack recommandée
-        - Next.js 15
+        - Next.js (app router)
         - TailwindCSS
-        - Axios
-        - React Hook Form / Zod
+        - Axios (ou fetch)
+        - React Hook Form (+ Zod pour validation optionnelle)
 
-        ## ✅ Tâches
-        - [ ] Créer le projet Next.js
-        - [ ] Configurer TailwindCSS
-        - [ ] Créer les pages `/login` et `/register`
-        - [ ] Créer le composant `AuthForm`
-        - [ ] Connecter le front au backend SSO (via Axios)
-        - [ ] Tester l’inscription et la connexion
-        - [ ] Stocker le token JWT dans `localStorage`
-        - [ ] Afficher le profil utilisateur (dashboard)
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: ✅ Tâches
+      options:
+        - label: Créer le projet Next.js (ou dossier `frontend/` dans le repo)
+        - label: Installer et configurer TailwindCSS
+        - label: Ajouter `NEXT_PUBLIC_API_URL` dans `.env.local`
+        - label: Créer la page `/register` avec formulaire d'inscription
+        - label: Créer la page `/login` avec formulaire de connexion
+        - label: Implémenter le composant `AuthForm` (inputs, erreurs, validation)
+        - label: Appeler les endpoints backend (`/auth/register`, `/auth/login`, `/auth/refresh`)
+        - label: Stocker le `accessToken` (en mémoire) et le `refreshToken` (stockage sécurisé)
+        - label: Créer une page `/dashboard` protégée qui affiche les infos utilisateur
+        - label: Gérer la déconnexion (supprimer token + `/auth/logout`)
+        - label: Tests manuels via navigateur / Postman / Insomnia
 
-        ## 🧠 Notes
-        - `.env.local` doit contenir `NEXT_PUBLIC_API_URL=http://localhost:3000`
-        - Vérifier la communication avec le backend avant stylisation.
+  - type: input
+    id: api_url
+    attributes:
+      label: "URL du backend API"
+      description: "Adresse publique ou locale du backend SSO"
+      placeholder: "http://localhost:3000"
+
+  - type: textarea
+    id: implementation_notes
+    attributes:
+      label: "Notes d'implémentation"
+      description: "Conseils et bonnes pratiques à respecter lors de l'implémentation."
+      value: |
+        - Préfère stocker l'access token en mémoire (éviter localStorage pour XSS).
+        - Le refresh token peut être stocké dans un cookie HttpOnly si possible.
+        - Valide les champs côté client (email, force du mot de passe).
+        - Affiche les erreurs renvoyées par le backend (400 / 401).
+        - Commence par une UI non stylée, puis applique Tailwind pour itérer vite.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧪 Tests recommandés
+        1. `POST /auth/register` → crée un utilisateur dans la DB (vérifier Prisma Studio)
+        2. `POST /auth/login` → retourne `accessToken` + `refreshToken`
+        3. Accéder à `/dashboard` avec le token (autorisation)
+        4. `POST /auth/refresh` → obtenir un nouveau access token
+        5. `POST /auth/logout` → supprimer la session côté serveur
+
+        ---
+        ✅ **Livrables attendus :**
+        - Lien vers le commit ou PR contenant le front SSO
+        - Captures d’écran des pages `/login` et `/register`
+        - Résultat des tests (succès / erreurs rencontrées)
