@@ -1,0 +1,127 @@
+name: "Étape 5 - Routes API d’authentification"
+description: "Créer les routes REST /auth pour l’inscription, la connexion, le rafraîchissement et la déconnexion des utilisateurs."
+title: "[Étape 5] Routes API Auth (register, login, refresh, logout)"
+labels:
+  - backend
+  - express
+  - auth
+  - étape-5
+assignees:
+  - copilothub[bot]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧩 Étape 5 - Routes d’authentification API
+
+        Nous allons maintenant exposer les routes REST nécessaires à l’authentification du SSO :
+        - `POST /auth/register` — création d’un nouvel utilisateur (hash + DB)
+        - `POST /auth/login` — vérification des identifiants et génération des tokens
+        - `POST /auth/refresh` — renouvellement d’un access token à partir du refresh token
+        - `POST /auth/logout` — suppression de la session ou du refresh token
+
+        L’objectif est d’avoir un **serveur Express/Fastify** minimal qui dialogue avec Prisma et utilise la logique d’auth définie à l’étape 4.
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dépendances serveur à installer
+      description: Librairies nécessaires pour créer l’API REST.
+      value: |
+        ```bash
+        npm install express cors dotenv
+        npm install --save-dev @types/express
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: example_routes
+    attributes:
+      label: Exemple minimal de routes
+      description: Exemple d’implémentation Express avec Prisma et les fonctions d’authentification.
+      value: |
+        ```ts
+        import express from "express"
+        import cors from "cors"
+        import dotenv from "dotenv"
+        import { PrismaClient } from "@prisma/client"
+        import { hashPassword, verifyPassword, generateAccessToken, generateRefreshToken } from "./auth"
+
+        dotenv.config()
+        const prisma = new PrismaClient()
+        const app = express()
+        app.use(cors())
+        app.use(express.json())
+
+        // 🧩 Register
+        app.post("/auth/register", async (req, res) => {
+          const { email, password } = req.body
+          const existing = await prisma.user.findUnique({ where: { email } })
+          if (existing) return res.status(400).json({ error: "User already exists" })
+
+          const passwordHash = await hashPassword(password)
+          const user = await prisma.user.create({ data: { email, passwordHash } })
+          res.json({ user })
+        })
+
+        // 🔐 Login
+        app.post("/auth/login", async (req, res) => {
+          const { email, password } = req.body
+          const user = await prisma.user.findUnique({ where: { email } })
+          if (!user || !(await verifyPassword(password, user.passwordHash))) {
+            return res.status(401).json({ error: "Invalid credentials" })
+          }
+
+          const accessToken = generateAccessToken(user.id)
+          const refreshToken = generateRefreshToken(user.id)
+
+          await prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000) } })
+
+          res.json({ accessToken, refreshToken })
+        })
+
+        // 🔁 Refresh Token
+        app.post("/auth/refresh", async (req, res) => {
+          const { refreshToken } = req.body
+          const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } })
+          if (!stored) return res.status(403).json({ error: "Invalid refresh token" })
+
+          const newAccessToken = generateAccessToken(stored.userId)
+          res.json({ accessToken: newAccessToken })
+        })
+
+        // 🚪 Logout
+        app.post("/auth/logout", async (req, res) => {
+          const { refreshToken } = req.body
+          await prisma.refreshToken.delete({ where: { token: refreshToken } }).catch(() => {})
+          res.json({ message: "Logged out" })
+        })
+
+        const PORT = process.env.PORT || 3000
+        app.listen(PORT, () => console.log(`✅ Auth API running on port ${PORT}`))
+        ```
+    validations:
+      required: true
+
+  - type: input
+    id: test_routes
+    attributes:
+      label: Tests à effectuer
+      description: Liste les routes à tester avec Postman / Insomnia.
+      placeholder: |
+        POST /auth/register
+        POST /auth/login
+        POST /auth/refresh
+        POST /auth/logout
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ✅ **Checklist :**
+        - [ ] Serveur Express lancé sans erreur
+        - [ ] Inscription et connexion fonctionnelles
+        - [ ] JWT reçu après `POST /auth/login`
+        - [ ] Refresh token valide et stocké dans la DB
+        - [ ] Déconnexion supprime le refresh token
