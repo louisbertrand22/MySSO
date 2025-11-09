@@ -108,10 +108,9 @@ MySSO/
 ## 🗄️ Database Schema
 
 ### Tables
-- **User** - User accounts with email, username, and password hash
-- **Client** - OAuth2/OIDC client applications
-- **AuthCode** - Authorization codes for OAuth2 flow
-- **RefreshToken** - Refresh tokens for token refresh flow
+- **User** - User accounts with email and password hash
+- **Session** - User sessions with expiration tracking
+- **RefreshToken** - Refresh tokens for maintaining user sessions
 
 ## 🔐 Security
 
