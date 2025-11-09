@@ -20,6 +20,7 @@ export const config = {
   jwt: {
     issuer: process.env.JWT_ISSUER || 'http://localhost:3000',
     expiration: parseInt(process.env.JWT_EXPIRATION || '3600', 10),
+    secret: process.env.JWT_SECRET || 'changeme',
   },
   
   // Keys directory
