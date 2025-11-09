@@ -1,0 +1,33 @@
+﻿name: "Étape 6 – Frontend SSO (Login & Register)"
+description: "Mise en place du front SSO avec formulaires d'inscription et de connexion"
+title: "✨ Étape 6 – Implémenter le front SSO (Login / Register)"
+labels: ["frontend", "sso", "nextjs", "ui"]
+assignees:
+  - louis
+  - copilote
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🎯 Objectif
+        Créer une interface Next.js pour permettre à un utilisateur de s’inscrire et se connecter via le backend SSO.
+
+        ## 🧩 Stack recommandée
+        - Next.js 15
+        - TailwindCSS
+        - Axios
+        - React Hook Form / Zod
+
+        ## ✅ Tâches
+        - [ ] Créer le projet Next.js
+        - [ ] Configurer TailwindCSS
+        - [ ] Créer les pages `/login` et `/register`
+        - [ ] Créer le composant `AuthForm`
+        - [ ] Connecter le front au backend SSO (via Axios)
+        - [ ] Tester l’inscription et la connexion
+        - [ ] Stocker le token JWT dans `localStorage`
+        - [ ] Afficher le profil utilisateur (dashboard)
+
+        ## 🧠 Notes
+        - `.env.local` doit contenir `NEXT_PUBLIC_API_URL=http://localhost:3000`
+        - Vérifier la communication avec le backend avant stylisation.
