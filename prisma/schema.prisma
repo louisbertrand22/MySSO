@@ -1,0 +1,78 @@
+// Prisma Schema for MySSO
+// This defines the database schema for the SSO system
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User table - stores user accounts
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  username      String         @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  emailVerified Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  authCodes     AuthCode[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+// Client table - stores OAuth2/OIDC client applications
+model Client {
+  id           String         @id @default(uuid())
+  clientId     String         @unique
+  clientSecret String
+  name         String
+  redirectUris String[]
+  grantTypes   String[]
+  scopes       String[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  authCodes    AuthCode[]
+  refreshTokens RefreshToken[]
+
+  @@map("clients")
+}
+
+// AuthCode table - stores authorization codes for OAuth2 flow
+model AuthCode {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  clientId    String
+  userId      String
+  redirectUri String
+  scope       String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  used        Boolean  @default(false)
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_codes")
+}
+
+// RefreshToken table - stores refresh tokens for token refresh flow
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  clientId  String
+  userId    String
+  scope     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
