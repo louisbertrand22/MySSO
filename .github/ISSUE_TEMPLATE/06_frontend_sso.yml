@@ -1,4 +1,4 @@
-﻿name: "Étape 6 – Frontend SSO (Login & Register)"
+name: "Étape 6 – Frontend SSO (Login & Register)"
 description: "Implémenter l'interface SSO : pages /register et /login, connexion au backend, stockage du JWT."
 title: "✨ [Étape 6] Frontend SSO — Login / Register"
 labels:
