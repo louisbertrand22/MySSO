@@ -35,12 +35,26 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` and configure your database connection and other settings.
+   Edit `.env` and configure your database connection. For local development with Docker:
+   ```
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mysso?schema=public"
+   ```
 
-4. **Setup database**
+4. **Start the database**
+   ```bash
+   docker compose up -d
+   ```
+   This will start a PostgreSQL database on port 5432.
+
+5. **Setup database schema**
    ```bash
    npm run prisma:migrate
    npm run prisma:generate
+   ```
+   
+   To view and manage your database, you can run:
+   ```bash
+   npm run prisma:studio
    ```
 
 ## 🚀 Running the Server
