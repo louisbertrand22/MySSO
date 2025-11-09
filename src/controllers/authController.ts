@@ -1,12 +1,163 @@
 import { Request, Response } from 'express';
 import { JwtService } from '../services/jwtService';
 import { config } from '../config/env';
+import { AuthService } from '../services/authService';
 
 /**
  * Auth Controller
- * Handles OAuth2/OpenID Connect authentication endpoints
+ * Handles OAuth2/OpenID Connect authentication endpoints and API auth routes
  */
 export class AuthController {
+  /**
+   * POST /auth/register
+   * Register a new user
+   */
+  static async register(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        res.status(400).json({ error: "Email and password are required" });
+        return;
+      }
+
+      const prisma = AuthService.getPrisma();
+      const existing = await prisma.user.findUnique({ where: { email } });
+      
+      if (existing) {
+        res.status(400).json({ error: "User already exists" });
+        return;
+      }
+
+      const passwordHash = await AuthService.hashPassword(password);
+      const user = await prisma.user.create({ 
+        data: { email, passwordHash },
+        select: { id: true, email: true, createdAt: true }
+      });
+
+      res.json({ user });
+    } catch (error) {
+      console.error('Register error:', error);
+      res.status(500).json({ 
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  }
+
+  /**
+   * POST /auth/login
+   * Login and get access and refresh tokens
+   */
+  static async login(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        res.status(400).json({ error: "Email and password are required" });
+        return;
+      }
+
+      const prisma = AuthService.getPrisma();
+      const user = await prisma.user.findUnique({ where: { email } });
+
+      if (!user || !(await AuthService.verifyPassword(password, user.passwordHash))) {
+        res.status(401).json({ error: "Invalid credentials" });
+        return;
+      }
+
+      const accessToken = AuthService.generateAccessToken(user.id);
+      const refreshToken = AuthService.generateRefreshToken(user.id);
+
+      await prisma.refreshToken.create({ 
+        data: { 
+          userId: user.id, 
+          token: refreshToken, 
+          expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000) 
+        } 
+      });
+
+      res.json({ accessToken, refreshToken });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ 
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  }
+
+  /**
+   * POST /auth/refresh
+   * Refresh access token using refresh token
+   */
+  static async refresh(req: Request, res: Response): Promise<void> {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        res.status(400).json({ error: "Refresh token is required" });
+        return;
+      }
+
+      const prisma = AuthService.getPrisma();
+      const stored = await prisma.refreshToken.findUnique({ 
+        where: { token: refreshToken } 
+      });
+
+      if (!stored) {
+        res.status(403).json({ error: "Invalid refresh token" });
+        return;
+      }
+
+      // Check if token is expired
+      if (stored.expiresAt < new Date()) {
+        await prisma.refreshToken.delete({ where: { token: refreshToken } });
+        res.status(403).json({ error: "Refresh token expired" });
+        return;
+      }
+
+      const newAccessToken = AuthService.generateAccessToken(stored.userId);
+      res.json({ accessToken: newAccessToken });
+    } catch (error) {
+      console.error('Refresh error:', error);
+      res.status(500).json({ 
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  }
+
+  /**
+   * POST /auth/logout
+   * Logout and invalidate refresh token
+   */
+  static async logout(req: Request, res: Response): Promise<void> {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        res.status(400).json({ error: "Refresh token is required" });
+        return;
+      }
+
+      const prisma = AuthService.getPrisma();
+      await prisma.refreshToken.delete({ 
+        where: { token: refreshToken } 
+      }).catch(() => {
+        // Ignore error if token doesn't exist
+      });
+
+      res.json({ message: "Logged out" });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ 
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  }
+
   /**
    * GET /.well-known/openid-configuration
    * Returns OpenID Connect discovery document

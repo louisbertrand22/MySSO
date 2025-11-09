@@ -4,6 +4,22 @@ import { AuthController } from '../controllers/authController';
 const router = Router();
 
 /**
+ * API Auth Endpoints
+ */
+
+// Register endpoint
+router.post('/auth/register', AuthController.register);
+
+// Login endpoint
+router.post('/auth/login', AuthController.login);
+
+// Refresh token endpoint
+router.post('/auth/refresh', AuthController.refresh);
+
+// Logout endpoint
+router.post('/auth/logout', AuthController.logout);
+
+/**
  * OpenID Connect Discovery
  * GET /.well-known/openid-configuration
  */
