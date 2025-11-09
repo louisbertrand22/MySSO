@@ -1,0 +1,84 @@
+name: "Étape 3 - Définition des modèles Prisma"
+description: "Créer et structurer les modèles principaux (User, Session, Token...) pour le SSO."
+title: "[Étape 3] Définir les modèles Prisma"
+labels:
+  - backend
+  - prisma
+  - sso
+  - étape-3
+assignees:
+  - copilothub[bot]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧱 Étape 3 - Définition des modèles Prisma
+
+        Dans cette étape, nous allons définir les **entités principales** du SSO dans `prisma/schema.prisma`.
+        Ces modèles serviront de base à toute la logique d’authentification.
+
+        ### Objectifs :
+        - Créer le modèle `User`
+        - Créer le modèle `Session`
+        - Créer le modèle `RefreshToken` (ou `Token`)
+        - Exécuter `npm run prisma:generate` et `npm run prisma:migrate`
+        - Vérifier la structure dans Prisma Studio
+
+  - type: textarea
+    id: models
+    attributes:
+      label: Modèles Prisma à définir
+      description: Propose ici les modèles initiaux à inclure dans le schéma Prisma.
+      value: |
+        ```prisma
+        model User {
+          id            String   @id @default(cuid())
+          email         String   @unique
+          passwordHash  String
+          createdAt     DateTime @default(now())
+          sessions      Session[]
+        }
+
+        model Session {
+          id        String   @id @default(cuid())
+          userId    String
+          user      User     @relation(fields: [userId], references: [id])
+          createdAt DateTime @default(now())
+          expiresAt DateTime
+        }
+
+        model RefreshToken {
+          id        String   @id @default(cuid())
+          userId    String
+          user      User     @relation(fields: [userId], references: [id])
+          token     String   @unique
+          createdAt DateTime @default(now())
+          expiresAt DateTime
+        }
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commandes à exécuter
+      description: Liste les commandes Prisma à lancer après mise à jour du schéma.
+      value: |
+        ```bash
+        npm run prisma:generate
+        npm run prisma:migrate
+        npm run prisma:studio
+        ```
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ✅ **Checklist :**
+        - [ ] Les modèles `User`, `Session`, et `RefreshToken` sont définis dans `schema.prisma`
+        - [ ] La migration a été appliquée sans erreur
+        - [ ] Le client Prisma a été régénéré
+        - [ ] Les modèles sont visibles dans Prisma Studio
