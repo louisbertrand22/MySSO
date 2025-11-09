@@ -1,0 +1,59 @@
+name: "Étape 2 - Configuration de Prisma"
+description: "Configurer Prisma, exécuter les migrations et générer le client Prisma pour le projet MySSO."
+title: "[Étape 2] Configuration Prisma et migrations"
+labels:
+  - backend
+  - prisma
+  - étape-2
+assignees:
+  - copilothub[bot]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚙️ Étape 2 - Configuration Prisma
+
+        Cette étape configure Prisma pour ton projet SSO :
+        - Création et application des migrations
+        - Génération du client Prisma
+        - Lancement de Prisma Studio pour vérifier la base
+
+  - type: input
+    id: database_url
+    attributes:
+      label: URL de connexion à la base de données
+      description: Indique la valeur utilisée dans le `.env`
+      placeholder: postgresql://postgres:postgres@localhost:5432/mysso?schema=public
+    validations:
+      required: true
+
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commandes à exécuter
+      description: Copie ici les commandes Prisma utilisées pendant l’étape.
+      value: |
+        ```bash
+        npm run prisma:migrate
+        npm run prisma:generate
+        npm run prisma:studio
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes ou remarques
+      description: Ajoute des remarques éventuelles sur la migration ou la structure des modèles.
+      placeholder: Exemple — le modèle User a été créé avec des champs id, email, passwordHash, etc.
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ✅ **Checklist :**
+        - [ ] Base de données opérationnelle (Docker PostgreSQL)
+        - [ ] Migration Prisma appliquée sans erreur
+        - [ ] Prisma Client généré avec succès
+        - [ ] Accès à Prisma Studio vérifié
