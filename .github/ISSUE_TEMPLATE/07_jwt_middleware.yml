@@ -1,0 +1,58 @@
+﻿name: "Étape 7 – Middleware JWT et protection des routes"
+description: "Implémenter la vérification JWT pour sécuriser les endpoints API."
+title: "🛡️ [Étape 7] Protection des routes avec middleware JWT"
+labels:
+  - backend
+  - auth
+  - jwt
+  - security
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🎯 Objectif
+        Créer un middleware Express pour protéger les routes via vérification du JWT et restreindre l'accès aux utilisateurs authentifiés.
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: ✅ Tâches
+      options:
+        - label: Créer le fichier `src/middleware/auth.middleware.ts`
+        - label: Vérifier le header `Authorization: Bearer <token>`
+        - label: Décoder le token avec `jwt.verify`
+        - label: Injecter l'utilisateur dans `req.user`
+        - label: Retourner `401 Unauthorized` si le token est invalide ou expiré
+        - label: Ajouter la protection sur `/me` et `/dashboard`
+        - label: Tester avec Postman (token valide / invalide / expiré)
+        - label: Vérifier la gestion des erreurs JWT
+
+  - type: input
+    id: jwt_secret
+    attributes:
+      label: "Clé JWT"
+      description: "Valeur de `JWT_SECRET` utilisée pour signer et vérifier les tokens."
+      placeholder: "ex: supersecretkey123"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes d'implémentation"
+      description: "Bonnes pratiques et considérations de sécurité."
+      value: |
+        - Utiliser `process.env.JWT_SECRET` dans `jwt.verify`
+        - Empêcher l'accès aux routes sensibles sans header valide
+        - Ne jamais stocker le token dans localStorage (préférer la mémoire volatile)
+        - Ajouter un test unitaire du middleware si possible
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ✅ **Livrables attendus :**
+        - Middleware fonctionnel `auth.middleware.ts`
+        - Routes `/me` et `/dashboard` protégées
+        - Capture de test Postman avec token valide et invalide
