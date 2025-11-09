@@ -1,0 +1,86 @@
+name: "🚀 Setup base architecture for custom SSO"
+description: "Initialize the OAuth2 + OpenID Connect authorization server project structure"
+title: "Setup base architecture for custom SSO"
+labels: ["setup", "sso", "auth", "enhancement"]
+assignees: ["github-copilot"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧠 Contexte
+        Je veux construire mon propre **SSO (Single Sign-On)** moderne pour mes applications.
+
+        Ce SSO doit être un **serveur d’autorisation OAuth2 + OpenID Connect** complet, capable d’émettre des **JWT tokens**, de gérer des **utilisateurs, clients, refresh tokens**, et de respecter les standards :
+        - RFC 6749 (OAuth 2.0)
+        - RFC 8414 (Authorization Server Metadata)
+        - RFC 8252 (OAuth 2.0 for Native Apps)
+        - RFC 9068 (JWT Access Tokens)
+
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚙️ Stack technique
+        - **Langage :** Node.js (TypeScript)  
+        - **Framework :** Express.js  
+        - **Base de données :** PostgreSQL (via Prisma ORM)  
+        - **Hashing :** Argon2id  
+        - **JWT :** RS256 (clés asymétriques)  
+        - **Tests :** Vitest  
+        - **Config :** dotenv  
+        - **Lint/Format :** ESLint + Prettier  
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 🎯 Objectif de cette étape
+      value: |
+        Créer la **base du projet** :
+        1. Structure du repo (`src/`, `prisma/`, `config/`, `routes/`, `controllers/`, `services/`)
+        2. Serveur Express prêt à lancer (port configurable)
+        3. Endpoint `/health` pour vérifier le bon fonctionnement
+        4. Génération et stockage local de clés RSA (`/keys/jwks.json`)
+        5. Schéma Prisma avec tables :
+           - `User`
+           - `Client`
+           - `AuthCode`
+           - `RefreshToken`
+        6. Hashing de mot de passe (Argon2id)
+        7. Génération d’un JWT de test (RS256)
+        8. Préparation des routes vides :
+           - `/.well-known/openid-configuration`
+           - `/authorize`
+           - `/token`
+           - `/userinfo`
+           - `/jwks.json`
+
+  - type: textarea
+    id: details
+    attributes:
+      label: ⚙️ Détails de mise en œuvre
+      value: |
+        - Respecter les spécifications OpenID Connect et OAuth2.  
+        - Utiliser TypeScript avec typage strict.  
+        - Découper en contrôleurs / services / modèles / middlewares.  
+        - Préparer une structure extensible (MFA, consent screen, admin UI).  
+        - Inclure un script `npm run dev` (nodemon).  
+        - Inclure un `README` expliquant le lancement.  
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 💡 Étapes attendues de Copilot
+      value: |
+        - Générer `src/server.ts` → serveur Express + routes  
+        - Générer `src/config/env.ts` → lecture `.env`  
+        - Générer `prisma/schema.prisma` avec les tables de base  
+        - Générer `src/services/jwtService.ts` → signature/vérification des JWT  
+        - Générer `src/routes/authRoutes.ts` (routes vides : authorize/token/userinfo)  
+        - Générer `src/controllers/authController.ts` (placeholders)  
+        - Script postinstall pour créer les clés RSA si absentes  
+        - Générer un `README.md` minimal (`npm install`, `npm run dev`, etc.)
+
+  - type: markdown
+    attributes:
+      value: |
+        ## ✅ Deliverable attendu
+        > Un squelette de projet Node/TypeScript fonctionnel avec un serveur Express minimal, Prisma configuré, clés JWT générées, endpoints placeholders, et une base prête pour étendre les flows OAuth2 / OpenID Connect.
