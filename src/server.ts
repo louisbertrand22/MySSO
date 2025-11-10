@@ -5,6 +5,7 @@ import { config, validateConfig } from './config/env';
 import authRoutes from './routes/authRoutes';
 import clientRoutes from './routes/clientRoutes';
 import userRoutes from './routes/userRoutes';
+import adminRoutes from './routes/adminRoutes';
 import { JwtService } from './services/jwtService';
 
 // Validate configuration
@@ -88,6 +89,9 @@ app.use('/', clientRoutes);
 
 // Mount user routes
 app.use('/', userRoutes);
+
+// Mount admin routes
+app.use('/', adminRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

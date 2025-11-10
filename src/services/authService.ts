@@ -52,9 +52,10 @@ export class AuthService {
    * Also creates a session in the database for tracking
    * @param userId - User ID
    * @param email - User email (optional, included in access token)
+   * @param scopes - Optional array of scopes to include in the access token
    * @returns Object containing accessToken and refreshToken
    */
-  static async generateTokens(userId: string, email?: string): Promise<{
+  static async generateTokens(userId: string, email?: string, scopes?: string[]): Promise<{
     accessToken: string
     refreshToken: string
   }> {
@@ -68,13 +69,22 @@ export class AuthService {
       throw new Error("User not found")
     }
 
-    // Generate access token with user email and createdAt
+    // Build access token payload
+    const accessTokenPayload: any = {
+      sub: userId, 
+      email: email || user.email,
+      createdAt: user.createdAt.toISOString()
+    };
+
+    // Include scopes if provided
+    if (scopes && scopes.length > 0) {
+      accessTokenPayload.scope = scopes.join(' ');
+      accessTokenPayload.scopes = scopes;
+    }
+
+    // Generate access token with user email, createdAt, and scopes
     const accessToken = JwtService.sign(
-      { 
-        sub: userId, 
-        email: email || user.email,
-        createdAt: user.createdAt.toISOString()
-      }, 
+      accessTokenPayload, 
       { expiresIn: "15m" }
     )
 

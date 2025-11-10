@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { ScopeService } from './scopeService';
 
 const prisma = new PrismaClient();
 
@@ -27,6 +28,31 @@ export class ConsentService {
   }
 
   /**
+   * Get existing consent scopes for a user and client
+   * @param userId - User ID
+   * @param clientId - Client ID
+   * @returns Array of granted scopes or null if no consent exists
+   */
+  static async getConsentScopes(
+    userId: string,
+    clientId: string
+  ): Promise<string[] | null> {
+    const consent = await prisma.userConsent.findUnique({
+      where: {
+        userId_clientId: {
+          userId,
+          clientId,
+        },
+      },
+      select: {
+        scopes: true,
+      },
+    });
+
+    return consent ? consent.scopes : null;
+  }
+
+  /**
    * Grant consent from user to client
    * @param userId - User ID
    * @param clientId - Client ID
@@ -44,6 +70,9 @@ export class ConsentService {
     scopes: string[];
     createdAt: Date;
   }> {
+    // Filter to only include valid scopes
+    const validScopes = await ScopeService.filterValidScopes(scopes);
+
     const consent = await prisma.userConsent.upsert({
       where: {
         userId_clientId: {
@@ -52,12 +81,12 @@ export class ConsentService {
         },
       },
       update: {
-        scopes,
+        scopes: validScopes,
       },
       create: {
         userId,
         clientId,
-        scopes,
+        scopes: validScopes,
       },
     });
 
