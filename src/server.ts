@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { config, validateConfig } from './config/env';
 import authRoutes from './routes/authRoutes';
 import clientRoutes from './routes/clientRoutes';
+import userRoutes from './routes/userRoutes';
 import { JwtService } from './services/jwtService';
 
 // Validate configuration
@@ -84,6 +85,9 @@ app.use('/', authRoutes);
 
 // Mount client routes
 app.use('/', clientRoutes);
+
+// Mount user routes
+app.use('/', userRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

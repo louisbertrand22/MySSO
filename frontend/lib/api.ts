@@ -2,7 +2,8 @@ import {
   LoginCredentials, 
   RegisterCredentials, 
   AuthResponse, 
-  RegisterResponse, 
+  RegisterResponse,
+  ConsentsResponse,
   User 
 } from './types';
 
@@ -113,6 +114,44 @@ export class ApiService {
     } catch (error) {
       console.error('Failed to decode token:', error);
       return null;
+    }
+  }
+
+  /**
+   * Get user consents
+   */
+  static async getConsents(accessToken: string): Promise<ConsentsResponse> {
+    const response = await fetch(`${API_URL}/user/consents`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get consents');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Revoke consent for a client
+   */
+  static async revokeConsent(accessToken: string, clientId: string): Promise<void> {
+    const response = await fetch(`${API_URL}/user/consents/${clientId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to revoke consent');
     }
   }
 }

@@ -4,6 +4,19 @@ export interface User {
   createdAt: string;
 }
 
+export interface Consent {
+  id: string;
+  clientId: string;
+  clientName: string;
+  scopes: string[];
+  createdAt: string;
+}
+
+export interface ConsentsResponse {
+  consents: Consent[];
+  total: number;
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;
