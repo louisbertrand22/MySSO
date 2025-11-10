@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client"
 import { HashService } from "./hashService"
 import { JwtService } from "./jwtService"
+import { randomBytes } from "crypto"
 
 const prisma = new PrismaClient()
 
@@ -44,6 +45,42 @@ export class AuthService {
    */
   static generateRefreshToken(userId: string): string {
     return JwtService.sign({ sub: userId, type: "refresh" }, { expiresIn: "7d" })
+  }
+
+  /**
+   * Generate both access and refresh tokens for a user
+   * @param userId - User ID
+   * @param email - User email (optional, included in access token)
+   * @returns Object containing accessToken and refreshToken
+   */
+  static async generateTokens(userId: string, email?: string): Promise<{
+    accessToken: string
+    refreshToken: string
+  }> {
+    // Generate access token with user email if provided
+    const accessToken = email
+      ? JwtService.sign({ sub: userId, email }, { expiresIn: "15m" })
+      : JwtService.sign({ sub: userId }, { expiresIn: "15m" })
+
+    // Generate unique identifier for this refresh token (jti claim)
+    const jti = randomBytes(16).toString("hex")
+
+    // Generate refresh token with unique jti to prevent token reuse
+    const refreshToken = JwtService.sign(
+      { sub: userId, type: "refresh", jti },
+      { expiresIn: "7d" }
+    )
+
+    // Store refresh token in database
+    await prisma.refreshToken.create({
+      data: {
+        userId,
+        token: refreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000), // 7 days
+      },
+    })
+
+    return { accessToken, refreshToken }
   }
 
   /**
