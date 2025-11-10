@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { JwtService } from '../services/jwtService';
 import { config } from '../config/env';
 import { AuthService } from '../services/authService';
+import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 /**
  * Auth Controller
@@ -222,14 +223,52 @@ export class AuthController {
 
   /**
    * GET /userinfo
-   * OpenID Connect UserInfo endpoint (placeholder)
+   * OpenID Connect UserInfo endpoint
+   * Returns information about the authenticated user
    */
-  static async userinfo(_req: Request, res: Response): Promise<void> {
-    // TODO: Implement userinfo endpoint
-    res.status(501).json({
-      error: 'not_implemented',
-      error_description: 'UserInfo endpoint not yet implemented',
-    });
+  static async userinfo(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      // The authMiddleware has already verified the token and attached user info
+      if (!req.user) {
+        res.status(401).json({
+          error: 'unauthorized',
+          error_description: 'User not authenticated',
+        });
+        return;
+      }
+
+      // Get user details from database
+      const prisma = AuthService.getPrisma();
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.sub },
+        select: {
+          id: true,
+          email: true,
+          createdAt: true,
+        },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          error: 'not_found',
+          error_description: 'User not found',
+        });
+        return;
+      }
+
+      // Return userinfo in OpenID Connect format
+      res.json({
+        sub: user.id,
+        email: user.email,
+        email_verified: true,
+      });
+    } catch (error) {
+      console.error('UserInfo error:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to retrieve user information',
+      });
+    }
   }
 
   /**
