@@ -9,9 +9,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: read
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mysso
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     strategy:
       matrix:
@@ -33,8 +48,68 @@ jobs:
     - name: Generate Prisma Client
       run: npm run prisma:generate
 
+    - name: Setup environment
+      run: |
+        cp .env.example .env
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mysso?schema=public" >> .env
+
+    - name: Run database migrations
+      run: npx prisma migrate deploy
+
     - name: Build TypeScript
       run: npm run build
 
     - name: Check for TypeScript errors
       run: npx tsc --noEmit
+
+    - name: Install frontend dependencies
+      if: matrix.node-version == '20.x'
+      run: cd frontend && npm install
+
+    - name: Build frontend
+      if: matrix.node-version == '20.x'
+      run: cd frontend && npm run build
+
+    - name: Start backend server
+      if: matrix.node-version == '20.x'
+      run: |
+        npm start &
+        SERVER_PID=$!
+        echo $SERVER_PID > server.pid
+
+        # Wait for server to be ready (max 30 seconds)
+        echo "Waiting for server to start..."
+        for i in {1..30}; do
+          if curl -s http://localhost:3000/health > /dev/null; then
+            echo "Server is ready!"
+            break
+          fi
+          if ! kill -0 $SERVER_PID 2>/dev/null; then
+            echo "Server process died"
+            exit 1
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 1
+        done
+
+    - name: Test health endpoint
+      if: matrix.node-version == '20.x'
+      run: |
+        response=$(curl -s http://localhost:3000/health)
+        echo "Health endpoint response: $response"
+
+        # Verify response contains expected fields
+        if echo "$response" | grep -q "healthy"; then
+          echo "✓ Health endpoint test passed"
+        else
+          echo "✗ Health endpoint test failed"
+          exit 1
+        fi
+
+    - name: Stop backend server
+      if: always() && matrix.node-version == '20.x'
+      run: |
+        if [ -f server.pid ]; then
+          kill $(cat server.pid) || true
+          rm server.pid
+        fi
