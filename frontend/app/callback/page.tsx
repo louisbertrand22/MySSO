@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
- * OAuth2 Callback Page
+ * OAuth2 Callback Page Content
  * Handles the authorization code callback from the SSO server
  */
-export default function CallbackPage() {
+function CallbackPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTokens } = useAuth();
@@ -119,4 +119,23 @@ export default function CallbackPage() {
   }
 
   return null;
+}
+
+/**
+ * OAuth2 Callback Page
+ * Wraps the content in Suspense boundary for useSearchParams
+ */
+export default function CallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <CallbackPageContent />
+    </Suspense>
+  );
 }
