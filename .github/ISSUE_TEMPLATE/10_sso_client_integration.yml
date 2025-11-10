@@ -1,0 +1,55 @@
+﻿name: "Étape 10 – Intégration front (SSO Client)"
+description: "Mettre en place le flux de redirection et d’échange de code pour connecter des apps externes via le SSO."
+title: "[Étape 10] Intégration front (SSO Client)"
+labels:
+  - frontend
+  - auth
+  - sso
+  - security
+  - integration
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Objectif
+        Permettre à des applications externes de se connecter via ton SSO avec redirection et code d’échange sécurisé.
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: "Tâches"
+      options:
+        - label: "Créer la route /login?redirect_uri=..."
+        - label: "Générer un code d’échange temporaire (UUID)"
+        - label: "Créer la table AuthCode (code, userId, redirectUri, expiresAt)"
+        - label: "Créer la route /token pour échanger code → accessToken/refreshToken"
+        - label: "Supprimer le code après utilisation"
+        - label: "Vérifier la whitelist de redirect_uri"
+        - label: "Implémenter la redirection côté front client"
+        - label: "Tester l’échange complet (login → redirect → token)"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes d’implémentation"
+      description: "Bonnes pratiques de sécurité et flux OAuth-like."
+      value: |
+        - Ne jamais réutiliser un code d’échange (usage unique)
+        - Limiter la durée de vie à 60 secondes
+        - Vérifier la redirection sur domaines autorisés
+        - Supprimer les codes expirés régulièrement (cron job)
+        - Utiliser HTTPS obligatoire
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Livrables attendus :**
+        - Routes /login et /token fonctionnelles
+        - AuthCode créé et supprimé après échange
+        - Redirection client SSO fonctionnelle
+        - Test complet réussi avec Postman et navigateur
+s
