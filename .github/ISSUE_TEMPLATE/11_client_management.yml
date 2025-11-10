@@ -1,0 +1,52 @@
+﻿name: "Étape 11 – Gestion des applications clientes"
+description: "Créer un système pour enregistrer, gérer et sécuriser les applications clientes autorisées à utiliser le SSO."
+title: "[Étape 11] Gestion des clients (ID, Secret, Whitelist)"
+labels:
+  - backend
+  - auth
+  - sso
+  - clients
+  - security
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Objectif
+        Implémenter la gestion des applications clientes : enregistrement, génération de clés, et validation des redirect_uri.
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: "Tâches"
+      options:
+        - label: "Créer le modèle Prisma Client (name, clientId, clientSecret, redirectUris)"
+        - label: "Créer la route POST /clients/register"
+        - label: "Générer aléatoirement clientId et clientSecret"
+        - label: "Vérifier le redirect_uri dans la route /login"
+        - label: "Interdire les clients non autorisés"
+        - label: "Tester l’enregistrement et la validation via Postman"
+        - label: "Optionnel — Ajouter la suppression ou mise à jour de clients"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes d’implémentation"
+      description: "Recommandations de sécurité et bonnes pratiques"
+      value: |
+        - Stocker le clientSecret de manière sécurisée
+        - Implémenter une whitelist stricte pour les redirect_uri
+        - Empêcher la réutilisation d’un même clientId
+        - Prévoir un panneau admin futur pour gérer les apps clientes
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Livrables attendus :**
+        - Table Client créée et migrée
+        - Route /clients/register fonctionnelle
+        - Validation clientId + redirect_uri sur /login
+        - Tests Postman réussis
