@@ -4,6 +4,7 @@ import { config } from '../config/env';
 import { AuthService } from '../services/authService';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { SecurityLogger } from '../services/securityLogger';
+import { AuthCodeService } from '../services/authCodeService';
 
 /**
  * Auth Controller
@@ -325,26 +326,182 @@ export class AuthController {
 
   /**
    * GET /authorize
-   * OAuth2 authorization endpoint (placeholder)
+   * OAuth2 authorization endpoint
+   * Generates an authorization code and redirects to the client's redirect_uri
    */
-  static async authorize(_req: Request, res: Response): Promise<void> {
-    // TODO: Implement authorization flow
-    res.status(501).json({
-      error: 'not_implemented',
-      error_description: 'Authorization endpoint not yet implemented',
-    });
+  static async authorize(req: Request, res: Response): Promise<void> {
+    try {
+      const { redirect_uri } = req.query;
+
+      // Validate redirect_uri parameter
+      if (!redirect_uri || typeof redirect_uri !== 'string') {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Missing or invalid redirect_uri parameter',
+        });
+        return;
+      }
+
+      // Validate redirect_uri is in whitelist
+      if (!AuthCodeService.isRedirectUriAllowed(redirect_uri)) {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'redirect_uri not allowed',
+        });
+        return;
+      }
+
+      // In a real OAuth2 flow, this would:
+      // 1. Check if user is authenticated (via session/cookie)
+      // 2. If not, redirect to login page with redirect_uri
+      // 3. If authenticated, show consent screen (optional)
+      // 4. Generate code and redirect
+      
+      // For now, we'll expect the user to be authenticated via Authorization header
+      // or we'll return instructions for the client
+      const authHeader = req.headers.authorization;
+      
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // User not authenticated - return error with instructions
+        res.status(401).json({
+          error: 'unauthorized',
+          error_description: 'User must be authenticated. Please login first and include access token in Authorization header.',
+        });
+        return;
+      }
+
+      // Extract and verify the access token
+      const token = authHeader.substring(7);
+      let decoded: any;
+      
+      try {
+        decoded = JwtService.verify(token);
+      } catch (error) {
+        res.status(401).json({
+          error: 'unauthorized',
+          error_description: 'Invalid or expired access token',
+        });
+        return;
+      }
+
+      // Extract user ID from token
+      const userId = decoded.sub;
+      if (!userId) {
+        res.status(401).json({
+          error: 'unauthorized',
+          error_description: 'Invalid token: missing user ID',
+        });
+        return;
+      }
+
+      // Generate authorization code
+      const code = await AuthCodeService.generateAuthCode(userId, redirect_uri);
+
+      // Redirect to client's redirect_uri with the code
+      const redirectUrl = new URL(redirect_uri);
+      redirectUrl.searchParams.set('code', code);
+      
+      res.redirect(redirectUrl.toString());
+    } catch (error) {
+      console.error('Authorization error:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to generate authorization code',
+      });
+    }
   }
 
   /**
    * POST /token
-   * OAuth2 token endpoint (placeholder)
+   * OAuth2 token endpoint
+   * Exchanges authorization code for access and refresh tokens
    */
-  static async token(_req: Request, res: Response): Promise<void> {
-    // TODO: Implement token exchange
-    res.status(501).json({
-      error: 'not_implemented',
-      error_description: 'Token endpoint not yet implemented',
-    });
+  static async token(req: Request, res: Response): Promise<void> {
+    try {
+      const { grant_type, code, redirect_uri } = req.body;
+
+      // Validate grant_type
+      if (!grant_type) {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Missing grant_type parameter',
+        });
+        return;
+      }
+
+      // For authorization code flow
+      if (grant_type === 'authorization_code') {
+        // Validate required parameters
+        if (!code || !redirect_uri) {
+          res.status(400).json({
+            error: 'invalid_request',
+            error_description: 'Missing code or redirect_uri parameter',
+          });
+          return;
+        }
+
+        // Validate and consume the authorization code
+        const userId = await AuthCodeService.validateAndConsumeAuthCode(code, redirect_uri);
+
+        if (!userId) {
+          res.status(400).json({
+            error: 'invalid_grant',
+            error_description: 'Invalid, expired, or already used authorization code',
+          });
+          return;
+        }
+
+        // Get user details
+        const prisma = AuthService.getPrisma();
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, email: true },
+        });
+
+        if (!user) {
+          res.status(400).json({
+            error: 'invalid_grant',
+            error_description: 'User not found',
+          });
+          return;
+        }
+
+        // Generate access and refresh tokens
+        const { accessToken, refreshToken } = await AuthService.generateTokens(
+          user.id,
+          user.email
+        );
+
+        // Set refresh token as HttpOnly cookie
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        // Return tokens in OAuth2 format
+        res.json({
+          access_token: accessToken,
+          token_type: 'Bearer',
+          expires_in: 900, // 15 minutes
+          refresh_token: refreshToken,
+        });
+        return;
+      }
+
+      // Unsupported grant type
+      res.status(400).json({
+        error: 'unsupported_grant_type',
+        error_description: `Grant type '${grant_type}' is not supported`,
+      });
+    } catch (error) {
+      console.error('Token error:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to exchange authorization code for tokens',
+      });
+    }
   }
 
   /**

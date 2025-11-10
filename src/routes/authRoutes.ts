@@ -30,6 +30,10 @@ router.get('/.well-known/openid-configuration', AuthController.getOpenIdConfigur
  * OAuth2/OIDC Endpoints
  */
 
+// Login endpoint for OAuth2 flow (same as authorize)
+// GET /login?redirect_uri=...
+router.get('/login', AuthController.authorize);
+
 // Authorization endpoint
 router.get('/authorize', AuthController.authorize);
 

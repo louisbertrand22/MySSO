@@ -74,13 +74,57 @@ The server will start on the port specified in `.env` (default: 3000).
 
 ## 📍 Available Endpoints
 
+### Authentication Endpoints
+- **Register**: `POST /auth/register` - Create a new user account
+- **Login**: `POST /auth/login` - Login and get tokens
+- **Refresh**: `POST /auth/refresh` - Refresh access token
+- **Logout**: `POST /auth/logout` - Logout and revoke tokens
+
+### OAuth2 Endpoints
+- **Authorization**: `GET /login?redirect_uri=...` or `GET /authorize?redirect_uri=...` - OAuth2 authorization endpoint
+- **Token Exchange**: `POST /token` - Exchange authorization code for tokens
+- **UserInfo**: `GET /userinfo` - Get authenticated user info
+
+### Discovery & Health
 - **Health Check**: `GET /health`
 - **Test JWT**: `GET /test/jwt`
 - **OpenID Configuration**: `GET /.well-known/openid-configuration`
-- **Authorization**: `GET /authorize` (placeholder)
-- **Token**: `POST /token` (placeholder)
-- **UserInfo**: `GET /userinfo` (placeholder)
 - **JWKS**: `GET /jwks.json`
+
+## 🔐 OAuth2 Authorization Code Flow
+
+MySSO now supports the OAuth2 authorization code flow for third-party client authentication:
+
+1. **Initiate Flow**: Client redirects to `/login?redirect_uri=<callback_url>`
+2. **User Authenticates**: User provides access token (from prior login)
+3. **Get Code**: Server generates authorization code and redirects to callback
+4. **Exchange Code**: Client exchanges code for access/refresh tokens via `/token`
+5. **Access Resources**: Client uses tokens to access protected endpoints
+
+**Example:**
+```bash
+# 1. Login to get access token
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password123"}'
+
+# 2. Request authorization code
+curl -i "http://localhost:3000/login?redirect_uri=http://localhost:5173/callback" \
+  -H "Authorization: Bearer <access_token>"
+
+# 3. Exchange code for tokens
+curl -X POST http://localhost:3000/token \
+  -H "Content-Type: application/json" \
+  -d '{"grant_type":"authorization_code","code":"<code>","redirect_uri":"http://localhost:5173/callback"}'
+```
+
+**Documentation**: See [docs/OAUTH2_FLOW.md](docs/OAUTH2_FLOW.md) for complete guide
+
+**Security Features**:
+- ✅ Single-use authorization codes
+- ✅ 60-second code expiration
+- ✅ Redirect URI whitelist validation
+- ✅ HTTPS enforcement in production
 
 ## 🗂️ Project Structure
 
@@ -109,8 +153,9 @@ MySSO/
 
 ### Tables
 - **User** - User accounts with email and password hash
-- **Session** - User sessions with expiration tracking
+- **Session** - User sessions with expiration and revocation tracking
 - **RefreshToken** - Refresh tokens for maintaining user sessions
+- **AuthCode** - OAuth2 authorization codes with expiration and single-use enforcement
 
 ## 🔐 Security
 
@@ -118,6 +163,13 @@ MySSO/
 - JWTs are signed using **RS256** (RSA SHA-256)
 - Private keys are stored locally and gitignored
 - Environment variables for sensitive configuration
+- **OAuth2 Security**:
+  - Single-use authorization codes
+  - Short-lived codes (60 seconds)
+  - Redirect URI whitelist validation
+  - HTTPS enforcement in production
+  - HttpOnly cookies for refresh tokens
+  - SameSite strict for CSRF protection
 
 ## 🧪 Testing
 
@@ -144,8 +196,14 @@ curl http://localhost:3000/.well-known/openid-configuration
 - `npm run prisma:generate` - Generate Prisma client
 - `npm run prisma:migrate` - Run database migrations
 - `npm run prisma:studio` - Open Prisma Studio
+- `scripts/testOAuth2Flow.sh` - Test OAuth2 authorization code flow
 
 ## 🔮 Future Enhancements
+
+- PKCE support for enhanced mobile/SPA security
+- Rate limiting on authentication endpoints
+- Client registration and management
+- Scope-based access control
 
 - Multi-Factor Authentication (MFA)
 - User consent screens
