@@ -108,7 +108,7 @@ export class ApiService {
       return {
         id: payload.sub,
         email: payload.email || '',
-        createdAt: new Date(payload.iat * 1000).toISOString(),
+        createdAt: payload.createdAt || new Date(payload.iat * 1000).toISOString(),
       };
     } catch (error) {
       console.error('Failed to decode token:', error);
