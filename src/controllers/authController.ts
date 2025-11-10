@@ -67,24 +67,11 @@ export class AuthController {
         return;
       }
 
-      // Generate tokens with user email in payload
-      const accessToken = JwtService.sign({ 
-        sub: user.id, 
-        email: user.email 
-      }, { expiresIn: "15m" });
-      
-      const refreshToken = JwtService.sign({ 
-        sub: user.id, 
-        type: "refresh" 
-      }, { expiresIn: "7d" });
-
-      await prisma.refreshToken.create({ 
-        data: { 
-          userId: user.id, 
-          token: refreshToken, 
-          expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000) 
-        } 
-      });
+      // Generate tokens using the new generateTokens service
+      const { accessToken, refreshToken } = await AuthService.generateTokens(
+        user.id,
+        user.email
+      );
 
       res.json({ accessToken, refreshToken });
     } catch (error) {
@@ -109,7 +96,34 @@ export class AuthController {
         return;
       }
 
+      // Verify the JWT signature of the refresh token
+      let decoded: any;
+      try {
+        decoded = JwtService.verify(refreshToken);
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.name === 'TokenExpiredError') {
+            res.status(403).json({ error: "Refresh token expired" });
+            return;
+          }
+          if (error.name === 'JsonWebTokenError') {
+            res.status(403).json({ error: "Invalid refresh token" });
+            return;
+          }
+        }
+        res.status(403).json({ error: "Invalid refresh token" });
+        return;
+      }
+
+      // Verify it's a refresh token type
+      if (decoded.type !== "refresh") {
+        res.status(403).json({ error: "Invalid token type" });
+        return;
+      }
+
       const prisma = AuthService.getPrisma();
+      
+      // Check if refresh token exists in database
       const stored = await prisma.refreshToken.findUnique({ 
         where: { token: refreshToken },
         include: { user: true }
@@ -120,20 +134,31 @@ export class AuthController {
         return;
       }
 
-      // Check if token is expired
+      // Check if token is expired (database expiration check)
       if (stored.expiresAt < new Date()) {
         await prisma.refreshToken.delete({ where: { token: refreshToken } });
         res.status(403).json({ error: "Refresh token expired" });
         return;
       }
 
-      // Generate new access token with email
-      const newAccessToken = JwtService.sign({ 
-        sub: stored.userId,
-        email: stored.user.email
-      }, { expiresIn: "15m" });
+      // Check if user still exists (handle deleted user case)
+      if (!stored.user) {
+        await prisma.refreshToken.delete({ where: { token: refreshToken } });
+        res.status(403).json({ error: "User not found" });
+        return;
+      }
+
+      // Token rotation: Delete the old refresh token
+      await prisma.refreshToken.delete({ where: { token: refreshToken } });
+
+      // Generate new token pair
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = 
+        await AuthService.generateTokens(stored.userId, stored.user.email);
       
-      res.json({ accessToken: newAccessToken });
+      res.json({ 
+        accessToken: newAccessToken, 
+        refreshToken: newRefreshToken 
+      });
     } catch (error) {
       console.error('Refresh error:', error);
       res.status(500).json({ 
@@ -145,11 +170,11 @@ export class AuthController {
 
   /**
    * POST /auth/logout
-   * Logout and invalidate refresh token
+   * Logout and invalidate refresh token(s)
    */
   static async logout(req: Request, res: Response): Promise<void> {
     try {
-      const { refreshToken } = req.body;
+      const { refreshToken, all } = req.body;
 
       if (!refreshToken) {
         res.status(400).json({ error: "Refresh token is required" });
@@ -157,6 +182,29 @@ export class AuthController {
       }
 
       const prisma = AuthService.getPrisma();
+      
+      // Find the refresh token to get the user ID
+      const stored = await prisma.refreshToken.findUnique({
+        where: { token: refreshToken },
+        select: { userId: true }
+      });
+
+      if (!stored) {
+        // Token doesn't exist, but we'll consider this a successful logout
+        res.json({ message: "Logged out" });
+        return;
+      }
+
+      // If 'all' flag is set, delete all refresh tokens for this user
+      if (all === true) {
+        await prisma.refreshToken.deleteMany({
+          where: { userId: stored.userId }
+        });
+        res.json({ message: "Logged out from all devices" });
+        return;
+      }
+
+      // Otherwise, just delete the specific refresh token
       await prisma.refreshToken.delete({ 
         where: { token: refreshToken } 
       }).catch(() => {
