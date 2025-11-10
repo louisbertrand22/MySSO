@@ -17,6 +17,7 @@ model User {
   createdAt     DateTime       @default(now())
   sessions      Session[]
   refreshTokens RefreshToken[]
+  authCodes     AuthCode[]
 }
 
 model Session {
@@ -35,4 +36,15 @@ model RefreshToken {
   token     String   @unique
   createdAt DateTime @default(now())
   expiresAt DateTime
+}
+
+model AuthCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  redirectUri String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  usedAt      DateTime?
 }
