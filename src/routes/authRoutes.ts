@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController';
+import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -35,8 +36,8 @@ router.get('/authorize', AuthController.authorize);
 // Token endpoint
 router.post('/token', AuthController.token);
 
-// UserInfo endpoint
-router.get('/userinfo', AuthController.userinfo);
+// UserInfo endpoint (protected)
+router.get('/userinfo', authMiddleware, AuthController.userinfo);
 
 // JWKS endpoint
 router.get('/jwks.json', AuthController.jwks);
