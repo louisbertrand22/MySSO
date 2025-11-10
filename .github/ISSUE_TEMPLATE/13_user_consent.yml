@@ -1,0 +1,51 @@
+﻿name: "Étape 13 – Gestion des consentements utilisateurs"
+description: "Créer la table UserConsent et les routes associées pour stocker et gérer les autorisations d’accès."
+title: "[Étape 13] Gestion des consentements utilisateurs"
+labels:
+  - backend
+  - prisma
+  - auth
+  - sso
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Objectif
+        Permettre au SSO d’enregistrer et gérer les consentements donnés par les utilisateurs aux applications clientes.
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: "Tâches à effectuer"
+      options:
+        - label: "Ajouter le modèle UserConsent dans Prisma"
+        - label: "Mettre à jour la migration et la base"
+        - label: "Modifier la route /auth/authorize pour enregistrer le consentement"
+        - label: "Créer la route GET /user/consents"
+        - label: "Créer la route DELETE /user/consents/:clientId"
+        - label: "Créer un composant front (liste + révocation)"
+        - label: "Tester la révocation (token, session, UI)"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes d’implémentation"
+      description: "Bonnes pratiques à garder en tête"
+      value: |
+        - Toujours vérifier la cohérence entre UserConsent et RefreshToken
+        - Supprimer les consentements lors de la suppression du compte
+        - Prévoir une pagination si beaucoup d’apps
+        - Journaliser les révocations pour audit
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Livrables attendus :**
+        - Table UserConsent créée
+        - Routes fonctionnelles pour liste et suppression
+        - UI de gestion visible dans le profil utilisateur
+        - Tests manuels validés
