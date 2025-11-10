@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client"
 import { HashService } from "./hashService"
 import { JwtService } from "./jwtService"
+import { randomBytes } from "crypto"
 
 const prisma = new PrismaClient()
 
@@ -61,9 +62,12 @@ export class AuthService {
       ? JwtService.sign({ sub: userId, email }, { expiresIn: "15m" })
       : JwtService.sign({ sub: userId }, { expiresIn: "15m" })
 
-    // Generate refresh token
+    // Generate unique identifier for this refresh token (jti claim)
+    const jti = randomBytes(16).toString("hex")
+
+    // Generate refresh token with unique jti to prevent token reuse
     const refreshToken = JwtService.sign(
-      { sub: userId, type: "refresh" },
+      { sub: userId, type: "refresh", jti },
       { expiresIn: "7d" }
     )
 
