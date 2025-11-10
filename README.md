@@ -4,13 +4,18 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
 
 ## 🚀 Features
 
-- **OpenID Connect & OAuth2** - Full OIDC/OAuth2 protocol support with user consent screens
-- **User Consent Management** - Explicit user authorization for client applications
-- **RSA JWT Signing** - Secure token signing with RS256 algorithm
-- **Argon2id Password Hashing** - Modern, secure password hashing
-- **Prisma ORM** - Type-safe database access
+- **Full OpenID Connect Support** - Complete OIDC implementation with discovery, JWKS, ID tokens
+- **PKCE (Proof Key for Code Exchange)** - Enhanced security for public clients (plain & S256)
+- **OAuth2 Authorization Code Flow** - Standards-compliant OAuth2 with consent management
+- **User Consent Management** - Explicit user authorization for client applications with scope-based permissions
+- **Nonce Support** - Replay attack prevention for ID tokens
+- **RSA JWT Signing (RS256)** - Secure token signing with public key distribution via JWKS
+- **Client Authentication** - Support for both confidential and public clients
+- **Scope-based Access Control** - Fine-grained permissions with admin, user, and client management scopes
+- **Argon2id Password Hashing** - Modern, secure password hashing resistant to GPU attacks
+- **Prisma ORM** - Type-safe database access with PostgreSQL
 - **TypeScript** - Full type safety and modern JavaScript features
-- **Extensible Architecture** - Ready for MFA and admin UI
+- **Security-first Design** - Single-use codes, short expiration, HTTPS enforcement, CSRF protection
 
 ## 📋 Prerequisites
 
@@ -87,12 +92,12 @@ The server will start on the port specified in `.env` (default: 3000).
 - **Refresh**: `POST /auth/refresh` - Refresh access token
 - **Logout**: `POST /auth/logout` - Logout and revoke tokens
 
-### OAuth2 Endpoints
-- **Authorization**: `GET /login?redirect_uri=...` or `GET /authorize?redirect_uri=...` - OAuth2 authorization endpoint
+### OAuth2/OIDC Endpoints
+- **Authorization**: `GET /authorize` - OAuth2/OIDC authorization endpoint (supports PKCE)
 - **Consent Screen**: `GET /consent?client_id=...` - View consent screen with scopes
 - **Handle Consent**: `POST /auth/authorize` - Approve or deny consent
-- **Token Exchange**: `POST /token` - Exchange authorization code for tokens
-- **UserInfo**: `GET /userinfo` - Get authenticated user info
+- **Token Exchange**: `POST /token` - Exchange authorization code for tokens (returns id_token for OIDC)
+- **UserInfo**: `GET /userinfo` - Get authenticated user info (scope-based claims)
 
 ### Admin Endpoints (Protected by Scopes)
 - **Admin Dashboard**: `GET /admin/dashboard` - Admin statistics (requires `admin` scope)
@@ -106,40 +111,47 @@ The server will start on the port specified in `.env` (default: 3000).
 - **OpenID Configuration**: `GET /.well-known/openid-configuration`
 - **JWKS**: `GET /jwks.json`
 
-## 🔐 OAuth2 Authorization Code Flow
+## 🔐 OpenID Connect & OAuth2
 
-MySSO now supports the OAuth2 authorization code flow for third-party client authentication:
+MySSO implements full OpenID Connect (OIDC) support with OAuth2 authorization code flow:
 
-1. **Initiate Flow**: Client redirects to `/login?redirect_uri=<callback_url>`
-2. **User Authenticates**: User provides access token (from prior login)
-3. **Get Code**: Server generates authorization code and redirects to callback
-4. **Exchange Code**: Client exchanges code for access/refresh tokens via `/token`
-5. **Access Resources**: Client uses tokens to access protected endpoints
+### Key Features
+- ✅ **OpenID Connect Discovery** - Auto-configuration via `/.well-known/openid-configuration`
+- ✅ **PKCE Support** - Both `plain` and `S256` methods for public clients
+- ✅ **ID Token** - OIDC-compliant ID tokens with nonce support
+- ✅ **Scope-based Claims** - UserInfo endpoint returns claims based on granted scopes
+- ✅ **Client Authentication** - Support for confidential clients with client_secret
+- ✅ **Single-use Codes** - Authorization codes are one-time use with 60-second expiration
+- ✅ **Nonce Support** - Replay attack prevention for ID tokens
 
-**Example:**
+### Quick Example
 ```bash
 # 1. Login to get access token
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"password123"}'
 
-# 2. Request authorization code
-curl -i "http://localhost:3000/login?redirect_uri=http://localhost:5173/callback" \
+# 2. Request authorization with PKCE
+CODE_VERIFIER=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-43)
+CODE_CHALLENGE=$(echo -n $CODE_VERIFIER | openssl dgst -sha256 -binary | base64 | tr -d "=+/" | tr "/+" "_-")
+
+curl -i "http://localhost:3000/authorize?client_id=my-client&redirect_uri=http://localhost:5173/callback&scope=openid%20email&code_challenge=$CODE_CHALLENGE&code_challenge_method=S256" \
   -H "Authorization: Bearer <access_token>"
 
-# 3. Exchange code for tokens
+# 3. Exchange code for tokens (including id_token)
 curl -X POST http://localhost:3000/token \
   -H "Content-Type: application/json" \
-  -d '{"grant_type":"authorization_code","code":"<code>","redirect_uri":"http://localhost:5173/callback"}'
+  -d '{
+    "grant_type":"authorization_code",
+    "code":"<code>",
+    "redirect_uri":"http://localhost:5173/callback",
+    "code_verifier":"'$CODE_VERIFIER'"
+  }'
 ```
 
-**Documentation**: See [docs/OAUTH2_FLOW.md](docs/OAUTH2_FLOW.md) for complete guide
-
-**Security Features**:
-- ✅ Single-use authorization codes
-- ✅ 60-second code expiration
-- ✅ Redirect URI whitelist validation
-- ✅ HTTPS enforcement in production
+**📖 Complete Documentation**: 
+- [OpenID Connect Endpoints](docs/OIDC_ENDPOINTS.md) - Full OIDC implementation guide
+- [OAuth2 Flow Guide](docs/OAUTH2_FLOW.md) - OAuth2 authorization code flow
 
 ## 🗂️ Project Structure
 
@@ -170,21 +182,40 @@ MySSO/
 - **User** - User accounts with email and password hash
 - **Session** - User sessions with expiration and revocation tracking
 - **RefreshToken** - Refresh tokens for maintaining user sessions
-- **AuthCode** - OAuth2 authorization codes with expiration and single-use enforcement
+- **AuthCode** - OAuth2/OIDC authorization codes with PKCE support, nonce, and single-use enforcement
+- **Client** - OAuth2/OIDC clients with secret, redirect URIs, and allowed scopes
+- **UserConsent** - User consent records for client applications
+- **Scope** - Available scopes and their descriptions
 
 ## 🔐 Security
 
-- Passwords are hashed using **Argon2id** with recommended parameters
-- JWTs are signed using **RS256** (RSA SHA-256)
-- Private keys are stored locally and gitignored
-- Environment variables for sensitive configuration
-- **OAuth2 Security**:
-  - Single-use authorization codes
-  - Short-lived codes (60 seconds)
-  - Redirect URI whitelist validation
-  - HTTPS enforcement in production
-  - HttpOnly cookies for refresh tokens
-  - SameSite strict for CSRF protection
+### Authentication & Encryption
+- **Argon2id Password Hashing** - Industry-leading password hashing with recommended parameters
+- **RS256 JWT Signing** - RSA SHA-256 for secure token signatures
+- **Private Key Protection** - Keys stored locally and excluded from version control
+- **Environment-based Configuration** - Sensitive data via environment variables
+
+### OAuth2/OIDC Security
+- **PKCE Support** - Proof Key for Code Exchange (plain & S256) for public clients
+- **Nonce Validation** - Replay attack prevention for ID tokens
+- **Single-use Authorization Codes** - Codes deleted immediately after use
+- **Short-lived Codes** - 60-second expiration for authorization codes
+- **Client Authentication** - Secret verification for confidential clients
+- **Redirect URI Validation** - Strict exact-match validation against registered URIs
+- **Scope-based Authorization** - Fine-grained permissions per client
+- **HTTPS Enforcement** - Required in production environment
+- **HttpOnly Cookies** - Secure refresh token storage
+- **SameSite Strict** - CSRF protection for cookies
+- **Token Rotation** - Refresh tokens rotated on each use
+
+### Production Checklist
+- ✅ Use strong DATABASE_URL with secure credentials
+- ✅ Set NODE_ENV=production to enable HTTPS-only cookies
+- ✅ Generate strong RSA keys (automatically done via postinstall)
+- ✅ Configure ALLOWED_ORIGINS for CORS
+- ✅ Use TLS/HTTPS for all endpoints
+- ✅ Regularly rotate client secrets
+- ✅ Monitor and audit security logs
 
 ## 🧪 Testing
 
@@ -244,15 +275,16 @@ See [docs/SCOPES.md](docs/SCOPES.md) for complete documentation.
 
 ## 🔮 Future Enhancements
 
-- PKCE support for enhanced mobile/SPA security
 - Rate limiting on authentication endpoints
-
 - Multi-Factor Authentication (MFA)
 - Admin UI for client and user management
-- Account recovery
+- Account recovery and password reset
 - Email verification
 - Consent management UI (view/revoke consents)
 - Scope groups and hierarchies
+- Dynamic client registration (RFC 7591)
+- Token introspection endpoint (RFC 7662)
+- Token revocation endpoint (RFC 7009)
 
 ## 📄 License
 

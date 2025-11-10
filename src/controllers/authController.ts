@@ -320,8 +320,10 @@ export class AuthController {
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
       scopes_supported: ['openid', 'profile', 'email'],
-      token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
-      claims_supported: ['sub', 'name', 'email', 'email_verified'],
+      token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post', 'none'],
+      claims_supported: ['sub', 'name', 'email', 'email_verified', 'updated_at', 'iat', 'auth_time', 'nonce'],
+      code_challenge_methods_supported: ['plain', 'S256'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
     };
 
     res.json(configuration);
@@ -334,7 +336,7 @@ export class AuthController {
    */
   static async authorize(req: Request, res: Response): Promise<void> {
     try {
-      const { redirect_uri, client_id, response_type, scope, state } = req.query;
+      const { redirect_uri, client_id, response_type, scope, state, nonce, code_challenge, code_challenge_method } = req.query;
 
       // Validate redirect_uri parameter
       if (!redirect_uri || typeof redirect_uri !== 'string') {
@@ -356,6 +358,24 @@ export class AuthController {
         });
         return;
       }
+
+      // Extract PKCE parameters
+      const codeChallenge = code_challenge && typeof code_challenge === 'string' ? code_challenge : undefined;
+      const codeChallengeMethod = code_challenge_method && typeof code_challenge_method === 'string' 
+        ? code_challenge_method 
+        : 'plain'; // Default to 'plain' if not specified
+
+      // Validate code_challenge_method if provided
+      if (codeChallenge && codeChallengeMethod !== 'plain' && codeChallengeMethod !== 'S256') {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'code_challenge_method must be either plain or S256',
+        });
+        return;
+      }
+
+      // Extract nonce for OIDC
+      const nonceParam = nonce && typeof nonce === 'string' ? nonce : undefined;
 
       // Check if user is authenticated via Authorization header
       const authHeader = req.headers.authorization;
@@ -396,7 +416,14 @@ export class AuthController {
       // If no client_id is provided, we can't show a consent screen
       // Generate code immediately for backward compatibility
       if (!clientId) {
-        const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId);
+        const code = await AuthCodeService.generateAuthCode(
+          userId, 
+          redirect_uri, 
+          clientId,
+          nonceParam,
+          codeChallenge,
+          codeChallengeMethod
+        );
         const redirectUrl = new URL(redirect_uri);
         redirectUrl.searchParams.set('code', code);
         if (state && typeof state === 'string') {
@@ -411,7 +438,14 @@ export class AuthController {
 
       if (hasConsent) {
         // User has already consented, generate code immediately
-        const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId);
+        const code = await AuthCodeService.generateAuthCode(
+          userId, 
+          redirect_uri, 
+          clientId,
+          nonceParam,
+          codeChallenge,
+          codeChallengeMethod
+        );
         const redirectUrl = new URL(redirect_uri);
         redirectUrl.searchParams.set('code', code);
         if (state && typeof state === 'string') {
@@ -434,6 +468,13 @@ export class AuthController {
       }
       if (state && typeof state === 'string') {
         consentUrl.searchParams.set('state', state);
+      }
+      if (nonceParam) {
+        consentUrl.searchParams.set('nonce', nonceParam);
+      }
+      if (codeChallenge) {
+        consentUrl.searchParams.set('code_challenge', codeChallenge);
+        consentUrl.searchParams.set('code_challenge_method', codeChallengeMethod);
       }
 
       res.redirect(consentUrl.toString());
@@ -536,7 +577,7 @@ export class AuthController {
    */
   static async handleConsent(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const { client_id, redirect_uri, approved, scope, state } = req.body;
+      const { client_id, redirect_uri, approved, scope, state, nonce, code_challenge, code_challenge_method } = req.body;
 
       // Validate required parameters
       if (!client_id || typeof client_id !== 'string') {
@@ -628,8 +669,22 @@ export class AuthController {
       // Grant consent with validated scopes
       await ConsentService.grantConsent(userId, client_id, validScopes);
 
-      // Generate authorization code
-      const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, client_id);
+      // Extract PKCE and nonce parameters
+      const nonceParam = nonce && typeof nonce === 'string' ? nonce : undefined;
+      const codeChallenge = code_challenge && typeof code_challenge === 'string' ? code_challenge : undefined;
+      const codeChallengeMethod = code_challenge_method && typeof code_challenge_method === 'string' 
+        ? code_challenge_method 
+        : 'plain';
+
+      // Generate authorization code with PKCE and nonce
+      const code = await AuthCodeService.generateAuthCode(
+        userId, 
+        redirect_uri, 
+        client_id,
+        nonceParam,
+        codeChallenge,
+        codeChallengeMethod
+      );
 
       // Redirect with authorization code
       redirectUrl.searchParams.set('code', code);
@@ -650,11 +705,11 @@ export class AuthController {
   /**
    * POST /token
    * OAuth2 token endpoint
-   * Exchanges authorization code for access and refresh tokens
+   * Exchanges authorization code for access, refresh, and ID tokens
    */
   static async token(req: Request, res: Response): Promise<void> {
     try {
-      const { grant_type, code, redirect_uri } = req.body;
+      const { grant_type, code, redirect_uri, code_verifier, client_id, client_secret } = req.body;
 
       // Validate grant_type
       if (!grant_type) {
@@ -676,18 +731,44 @@ export class AuthController {
           return;
         }
 
-        // Validate and consume the authorization code
-        const result = await AuthCodeService.validateAndConsumeAuthCode(code, redirect_uri);
+        // Validate and consume the authorization code (with PKCE verification)
+        const result = await AuthCodeService.validateAndConsumeAuthCode(
+          code, 
+          redirect_uri,
+          code_verifier // Will be verified if code_challenge was provided
+        );
 
         if (!result) {
           res.status(400).json({
             error: 'invalid_grant',
-            error_description: 'Invalid, expired, or already used authorization code',
+            error_description: 'Invalid, expired, or already used authorization code, or PKCE verification failed',
           });
           return;
         }
 
-        const { userId, clientId } = result;
+        const { userId, clientId, nonce } = result;
+
+        // Client authentication for confidential clients
+        if (clientId && client_secret) {
+          // Verify client credentials
+          const client = await ClientService.validateClient(clientId, client_secret);
+          if (!client) {
+            res.status(401).json({
+              error: 'invalid_client',
+              error_description: 'Invalid client credentials',
+            });
+            return;
+          }
+        } else if (clientId && client_id) {
+          // Basic validation: ensure client_id matches
+          if (client_id !== clientId) {
+            res.status(400).json({
+              error: 'invalid_request',
+              error_description: 'client_id mismatch',
+            });
+            return;
+          }
+        }
 
         // Get user details
         const prisma = AuthService.getPrisma();
@@ -720,6 +801,17 @@ export class AuthController {
           scopes.length > 0 ? scopes : undefined
         );
 
+        // Generate ID token if 'openid' scope is present
+        let idToken: string | undefined;
+        if (scopes.includes('openid')) {
+          idToken = JwtService.generateIdToken(
+            user.id,
+            user.email,
+            nonce || undefined,
+            clientId || undefined
+          );
+        }
+
         // Set refresh token as HttpOnly cookie
         res.cookie('refreshToken', refreshToken, {
           httpOnly: true,
@@ -728,14 +820,21 @@ export class AuthController {
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
-        // Return tokens in OAuth2 format
-        res.json({
+        // Return tokens in OAuth2/OIDC format
+        const response: any = {
           access_token: accessToken,
           token_type: 'Bearer',
           expires_in: 900, // 15 minutes
           refresh_token: refreshToken,
           scope: scopes.join(' '),
-        });
+        };
+
+        // Add id_token if generated
+        if (idToken) {
+          response.id_token = idToken;
+        }
+
+        res.json(response);
         return;
       }
 
@@ -756,7 +855,7 @@ export class AuthController {
   /**
    * GET /userinfo
    * OpenID Connect UserInfo endpoint
-   * Returns information about the authenticated user
+   * Returns information about the authenticated user based on granted scopes
    */
   static async userinfo(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
@@ -788,12 +887,31 @@ export class AuthController {
         return;
       }
 
-      // Return userinfo in OpenID Connect format
-      res.json({
-        sub: user.id,
-        email: user.email,
-        email_verified: true,
-      });
+      // Extract scopes from the token
+      const scopes = req.user.scope ? 
+        (Array.isArray(req.user.scope) ? req.user.scope : req.user.scope.split(' ')) : 
+        [];
+
+      // Build response based on scopes
+      const userInfo: any = {
+        sub: user.id, // 'sub' is always returned
+      };
+
+      // Add profile claims if 'profile' scope is granted
+      if (scopes.includes('profile')) {
+        // In a real application, you would have more profile fields
+        // For now, we'll add basic info
+        userInfo.name = user.email.split('@')[0]; // Simple name derivation
+        userInfo.updated_at = Math.floor(user.createdAt.getTime() / 1000);
+      }
+
+      // Add email claims if 'email' scope is granted
+      if (scopes.includes('email')) {
+        userInfo.email = user.email;
+        userInfo.email_verified = true;
+      }
+
+      res.json(userInfo);
     } catch (error) {
       console.error('UserInfo error:', error);
       res.status(500).json({
