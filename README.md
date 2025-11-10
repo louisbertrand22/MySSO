@@ -29,7 +29,7 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
    ```bash
    npm install
    ```
-   This will automatically generate RSA keys for JWT signing.
+   This will automatically generate RSA keys for JWT signing and the Prisma client.
 
 3. **Configure environment**
    ```bash
@@ -49,8 +49,8 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
 5. **Setup database schema**
    ```bash
    npm run prisma:migrate
-   npm run prisma:generate
    ```
+   Note: `prisma generate` is automatically run during `npm install`, so you only need to run migrations.
    
    To view and manage your database, you can run:
    ```bash
