@@ -3,10 +3,11 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import ConsentsManager from '@/components/ConsentsManager';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isLoading, logout } = useAuth();
+  const { user, accessToken, isLoading, logout } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -108,6 +109,26 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500">You are currently logged in</p>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="px-4 py-5 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Authorized Applications
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                Manage third-party applications that have access to your account
+              </p>
+            </div>
+            <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+              {accessToken ? (
+                <ConsentsManager accessToken={accessToken} />
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  Loading...
+                </div>
+              )}
             </div>
           </div>
         </div>
