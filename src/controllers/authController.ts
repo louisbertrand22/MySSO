@@ -3,6 +3,7 @@ import { JwtService } from '../services/jwtService';
 import { config } from '../config/env';
 import { AuthService } from '../services/authService';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { SecurityLogger } from '../services/securityLogger';
 
 /**
  * Auth Controller
@@ -73,6 +74,14 @@ export class AuthController {
         user.email
       );
 
+      // Set refresh token as HttpOnly cookie
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+
       res.json({ accessToken, refreshToken });
     } catch (error) {
       console.error('Login error:', error);
@@ -89,7 +98,8 @@ export class AuthController {
    */
   static async refresh(req: Request, res: Response): Promise<void> {
     try {
-      const { refreshToken } = req.body;
+      // Get refresh token from body or cookie
+      const refreshToken = req.body.refreshToken || req.cookies.refreshToken;
 
       if (!refreshToken) {
         res.status(400).json({ error: "Refresh token is required" });
@@ -155,6 +165,14 @@ export class AuthController {
       const { accessToken: newAccessToken, refreshToken: newRefreshToken } = 
         await AuthService.generateTokens(stored.userId, stored.user.email);
       
+      // Set new refresh token as HttpOnly cookie
+      res.cookie('refreshToken', newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+
       res.json({ 
         accessToken: newAccessToken, 
         refreshToken: newRefreshToken 
@@ -170,13 +188,17 @@ export class AuthController {
 
   /**
    * POST /auth/logout
-   * Logout and invalidate refresh token(s)
+   * Logout and invalidate refresh token(s) and sessions
    */
   static async logout(req: Request, res: Response): Promise<void> {
     try {
-      const { refreshToken, all } = req.body;
+      // Get refresh token from body or cookie
+      const refreshToken = req.body.refreshToken || req.cookies.refreshToken;
+      const all = req.body.all;
 
       if (!refreshToken) {
+        // Clear cookie even if no token provided
+        res.clearCookie('refreshToken');
         res.status(400).json({ error: "Refresh token is required" });
         return;
       }
@@ -190,30 +212,86 @@ export class AuthController {
       });
 
       if (!stored) {
-        // Token doesn't exist, but we'll consider this a successful logout
+        // Token doesn't exist, but we'll clear the cookie and consider this a successful logout
+        res.clearCookie('refreshToken');
         res.json({ message: "Logged out" });
         return;
       }
 
-      // If 'all' flag is set, delete all refresh tokens for this user
+      const userId = stored.userId;
+
+      // If 'all' flag is set, delete all refresh tokens and revoke all sessions for this user
       if (all === true) {
+        // Delete all refresh tokens for this user
         await prisma.refreshToken.deleteMany({
-          where: { userId: stored.userId }
+          where: { userId }
         });
+
+        // Revoke all sessions for this user
+        await prisma.session.updateMany({
+          where: { 
+            userId,
+            revokedAt: null // Only revoke sessions that haven't been revoked yet
+          },
+          data: { 
+            revokedAt: new Date() 
+          }
+        });
+
+        // Clear cookie
+        res.clearCookie('refreshToken');
+
+        // Log security event
+        SecurityLogger.logLogout(userId, true);
+        SecurityLogger.logRevocation(userId, 'all', { 
+          reason: 'User logged out from all devices' 
+        });
+
         res.json({ message: "Logged out from all devices" });
         return;
       }
 
-      // Otherwise, just delete the specific refresh token
+      // Otherwise, just delete the specific refresh token and revoke associated session
       await prisma.refreshToken.delete({ 
         where: { token: refreshToken } 
       }).catch(() => {
         // Ignore error if token doesn't exist
       });
 
+      // Revoke the current session (most recent session for this user)
+      // We revoke the most recent non-revoked session
+      const sessions = await prisma.session.findMany({
+        where: { 
+          userId,
+          revokedAt: null
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1
+      });
+
+      if (sessions.length > 0) {
+        await prisma.session.update({
+          where: { id: sessions[0].id },
+          data: { revokedAt: new Date() }
+        });
+
+        SecurityLogger.logSessionRevocation(userId, sessions[0].id, 'single');
+      }
+
+      // Clear cookie
+      res.clearCookie('refreshToken');
+
+      // Log security event
+      SecurityLogger.logLogout(userId, false);
+      SecurityLogger.logRevocation(userId, 'single', { 
+        reason: 'User logged out' 
+      });
+
       res.json({ message: "Logged out" });
     } catch (error) {
       console.error('Logout error:', error);
+      // Even on error, try to clear the cookie
+      res.clearCookie('refreshToken');
       res.status(500).json({ 
         error: "Internal server error",
         message: error instanceof Error ? error.message : "Unknown error"
