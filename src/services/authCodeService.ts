@@ -57,15 +57,15 @@ export class AuthCodeService {
 
   /**
    * Validate and consume an authorization code
-   * Returns user ID if valid, null if invalid/expired/used
+   * Returns user ID and client ID if valid, null if invalid/expired/used
    * @param code - Authorization code
    * @param redirectUri - Redirect URI to validate against
-   * @returns User ID if valid, null otherwise
+   * @returns Object with userId and clientId if valid, null otherwise
    */
   static async validateAndConsumeAuthCode(
     code: string,
     redirectUri: string
-  ): Promise<string | null> {
+  ): Promise<{ userId: string; clientId: string | null } | null> {
     // Find the auth code
     const authCode = await prisma.authCode.findUnique({
       where: { code },
@@ -102,7 +102,10 @@ export class AuthCodeService {
     // Delete the code after use (alternative to marking as used)
     await prisma.authCode.delete({ where: { code } })
 
-    return authCode.userId
+    return {
+      userId: authCode.userId,
+      clientId: authCode.clientId,
+    }
   }
 
   /**

@@ -58,6 +58,12 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
    npm run prisma:studio
    ```
 
+6. **Seed default scopes**
+   ```bash
+   node scripts/seed_scopes.js
+   ```
+   This creates the default OAuth2/OIDC scopes and administrative scopes.
+
 ## 🚀 Running the Server
 
 ### Development mode (with auto-reload)
@@ -83,8 +89,16 @@ The server will start on the port specified in `.env` (default: 3000).
 
 ### OAuth2 Endpoints
 - **Authorization**: `GET /login?redirect_uri=...` or `GET /authorize?redirect_uri=...` - OAuth2 authorization endpoint
+- **Consent Screen**: `GET /consent?client_id=...` - View consent screen with scopes
+- **Handle Consent**: `POST /auth/authorize` - Approve or deny consent
 - **Token Exchange**: `POST /token` - Exchange authorization code for tokens
 - **UserInfo**: `GET /userinfo` - Get authenticated user info
+
+### Admin Endpoints (Protected by Scopes)
+- **Admin Dashboard**: `GET /admin/dashboard` - Admin statistics (requires `admin` scope)
+- **List Users**: `GET /admin/users` - List all users (requires `read:users` or `admin` scope)
+- **List Scopes**: `GET /admin/scopes` - List available scopes (requires `admin` scope)
+- **List Clients**: `GET /admin/clients` - List OAuth2 clients (requires `read:clients` or `admin` scope)
 
 ### Discovery & Health
 - **Health Check**: `GET /health`
@@ -199,17 +213,46 @@ curl http://localhost:3000/.well-known/openid-configuration
 - `npm run prisma:studio` - Open Prisma Studio
 - `scripts/testOAuth2Flow.sh` - Test OAuth2 authorization code flow
 
+## 🔐 Scope-Based Access Control
+
+MySSO implements fine-grained scope and permission management:
+
+### Available Scopes
+
+- **OAuth2/OIDC Scopes**: `openid`, `profile`, `email`
+- **Admin Scope**: `admin` - Access administrative functions
+- **User Management**: `read:users`, `write:users`, `delete:users`
+- **Client Management**: `read:clients`, `write:clients`, `delete:clients`
+
+### Protected Endpoints
+
+- `/admin/dashboard` - Requires `admin` scope
+- `/admin/users` - Requires `read:users` OR `admin` scope
+- `/admin/scopes` - Requires `admin` scope
+- `/admin/clients` - Requires `read:clients` OR `admin` scope
+
+### Features
+
+- ✅ Scope validation in authorization flow
+- ✅ Client-specific allowed scopes
+- ✅ Scopes included in JWT tokens
+- ✅ Middleware for scope-based protection
+- ✅ Consent screen displays scope details
+- ✅ Strict validation (never grant undeclared scopes)
+
+See [docs/SCOPES.md](docs/SCOPES.md) for complete documentation.
+
 ## 🔮 Future Enhancements
 
 - PKCE support for enhanced mobile/SPA security
 - Rate limiting on authentication endpoints
-- Scope-based access control
 
 - Multi-Factor Authentication (MFA)
 - Admin UI for client and user management
 - Account recovery
 - Email verification
 - Consent management UI (view/revoke consents)
+- Scope groups and hierarchies
 
 ## 📄 License
 

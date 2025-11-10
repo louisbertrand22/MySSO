@@ -214,6 +214,7 @@ export class ClientService {
     name: string;
     clientId: string;
     redirectUris: string[];
+    allowedScopes?: string[];
   } | null> {
     const client = await prisma.client.findUnique({
       where: { clientId },
@@ -222,6 +223,7 @@ export class ClientService {
         name: true,
         clientId: true,
         redirectUris: true,
+        allowedScopes: true,
       },
     });
 

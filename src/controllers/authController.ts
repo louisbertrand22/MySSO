@@ -7,6 +7,7 @@ import { SecurityLogger } from '../services/securityLogger';
 import { AuthCodeService } from '../services/authCodeService';
 import { ConsentService } from '../services/consentService';
 import { ClientService } from '../services/clientService';
+import { ScopeService } from '../services/scopeService';
 
 /**
  * Auth Controller
@@ -498,10 +499,17 @@ export class AuthController {
         return;
       }
 
-      // Parse scopes
+      // Parse requested scopes
       const requestedScopes = scope && typeof scope === 'string' 
         ? scope.split(' ') 
-        : ['openid', 'profile', 'email'];
+        : ScopeService.getDefaultScopes();
+
+      // Validate scopes against client's allowed scopes
+      const clientAllowedScopes = (client as any).allowedScopes || ScopeService.getDefaultScopes();
+      const validScopes = ScopeService.validateClientScopes(requestedScopes, clientAllowedScopes);
+
+      // Get scope details for display
+      const scopeDetails = await ScopeService.getScopeDetails(validScopes);
 
       // Return consent screen data
       res.json({
@@ -509,7 +517,7 @@ export class AuthController {
           id: client.clientId,
           name: client.name,
         },
-        scopes: requestedScopes,
+        scopes: scopeDetails,
         redirect_uri,
         state: state && typeof state === 'string' ? state : undefined,
       });
@@ -600,12 +608,25 @@ export class AuthController {
 
       // Handle approval
       // Parse scopes
-      const scopes = Array.isArray(scope) ? scope : 
+      const requestedScopes = Array.isArray(scope) ? scope : 
                      typeof scope === 'string' ? scope.split(' ') : 
-                     ['openid', 'profile', 'email'];
+                     ScopeService.getDefaultScopes();
 
-      // Grant consent
-      await ConsentService.grantConsent(userId, client_id, scopes);
+      // Validate scopes against client's allowed scopes
+      const clientAllowedScopes = (client as any).allowedScopes || ScopeService.getDefaultScopes();
+      const validScopes = ScopeService.validateClientScopes(requestedScopes, clientAllowedScopes);
+
+      // Never grant scopes that are not declared by the client
+      if (validScopes.length === 0) {
+        res.status(400).json({
+          error: 'invalid_scope',
+          error_description: 'No valid scopes requested for this client',
+        });
+        return;
+      }
+
+      // Grant consent with validated scopes
+      await ConsentService.grantConsent(userId, client_id, validScopes);
 
       // Generate authorization code
       const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, client_id);
@@ -656,15 +677,17 @@ export class AuthController {
         }
 
         // Validate and consume the authorization code
-        const userId = await AuthCodeService.validateAndConsumeAuthCode(code, redirect_uri);
+        const result = await AuthCodeService.validateAndConsumeAuthCode(code, redirect_uri);
 
-        if (!userId) {
+        if (!result) {
           res.status(400).json({
             error: 'invalid_grant',
             error_description: 'Invalid, expired, or already used authorization code',
           });
           return;
         }
+
+        const { userId, clientId } = result;
 
         // Get user details
         const prisma = AuthService.getPrisma();
@@ -681,10 +704,20 @@ export class AuthController {
           return;
         }
 
-        // Generate access and refresh tokens
+        // Get user's consented scopes for this client
+        let scopes: string[] = [];
+        if (clientId) {
+          const consentedScopes = await ConsentService.getConsentScopes(userId, clientId);
+          if (consentedScopes) {
+            scopes = consentedScopes;
+          }
+        }
+
+        // Generate access and refresh tokens with scopes
         const { accessToken, refreshToken } = await AuthService.generateTokens(
           user.id,
-          user.email
+          user.email,
+          scopes.length > 0 ? scopes : undefined
         );
 
         // Set refresh token as HttpOnly cookie
@@ -701,6 +734,7 @@ export class AuthController {
           token_type: 'Bearer',
           expires_in: 900, // 15 minutes
           refresh_token: refreshToken,
+          scope: scopes.join(' '),
         });
         return;
       }

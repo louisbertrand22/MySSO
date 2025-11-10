@@ -58,6 +58,7 @@ model Client {
   clientId      String        @unique
   clientSecret  String
   redirectUris  String[]
+  allowedScopes String[]      @default(["openid", "profile", "email"])
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   authCodes     AuthCode[]
@@ -76,4 +77,13 @@ model UserConsent {
   @@unique([userId, clientId])
   @@index([userId])
   @@index([clientId])
+}
+
+model Scope {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  createdAt   DateTime @default(now())
+
+  @@index([name])
 }
