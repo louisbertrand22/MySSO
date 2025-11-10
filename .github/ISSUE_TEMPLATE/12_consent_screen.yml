@@ -1,0 +1,52 @@
+﻿name: "Étape 12 – Écran de consentement utilisateur"
+description: "Implémenter une page de consentement où l’utilisateur autorise ou refuse une application cliente à accéder à ses données."
+title: "[Étape 12] Écran de consentement utilisateur"
+labels:
+  - frontend
+  - backend
+  - auth
+  - sso
+  - ui
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Objectif
+        Créer un écran de consentement intermédiaire entre la connexion SSO et la redirection finale vers l’app cliente.
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: "Tâches"
+      options:
+        - label: "Créer la route GET /consent (affichage)"
+        - label: "Créer la route POST /auth/authorize (validation du choix)"
+        - label: "Afficher le nom de l’application et les permissions demandées"
+        - label: "Générer un code d’échange uniquement si l’utilisateur autorise"
+        - label: "Refuser avec redirection ?error=access_denied"
+        - label: "Ajouter un middleware JWT pour s’assurer que l’utilisateur est connecté"
+        - label: "Tester le flux complet (refus / autorisation)"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes d’implémentation"
+      description: "Conseils et bonnes pratiques"
+      value: |
+        - Toujours afficher le nom de l’app cliente
+        - Stocker les consentements (UserConsent) pour audit
+        - Supprimer les consentements lors de la suppression du compte
+        - Tester à la fois l’autorisation et le refus
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Livrables attendus :**
+        - Page de consentement affichée correctement
+        - Routes /consent et /auth/authorize fonctionnelles
+        - Redirection correcte après choix utilisateur
+        - Capture Postman / navigateur du flux complet
