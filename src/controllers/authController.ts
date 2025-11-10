@@ -5,6 +5,8 @@ import { AuthService } from '../services/authService';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { SecurityLogger } from '../services/securityLogger';
 import { AuthCodeService } from '../services/authCodeService';
+import { ConsentService } from '../services/consentService';
+import { ClientService } from '../services/clientService';
 
 /**
  * Auth Controller
@@ -327,11 +329,11 @@ export class AuthController {
   /**
    * GET /authorize
    * OAuth2 authorization endpoint
-   * Generates an authorization code and redirects to the client's redirect_uri
+   * Redirects to consent screen if user is authenticated
    */
   static async authorize(req: Request, res: Response): Promise<void> {
     try {
-      const { redirect_uri, client_id } = req.query;
+      const { redirect_uri, client_id, response_type, scope, state } = req.query;
 
       // Validate redirect_uri parameter
       if (!redirect_uri || typeof redirect_uri !== 'string') {
@@ -354,14 +356,7 @@ export class AuthController {
         return;
       }
 
-      // In a real OAuth2 flow, this would:
-      // 1. Check if user is authenticated (via session/cookie)
-      // 2. If not, redirect to login page with redirect_uri
-      // 3. If authenticated, show consent screen (optional)
-      // 4. Generate code and redirect
-      
-      // For now, we'll expect the user to be authenticated via Authorization header
-      // or we'll return instructions for the client
+      // Check if user is authenticated via Authorization header
       const authHeader = req.headers.authorization;
       
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -397,19 +392,236 @@ export class AuthController {
         return;
       }
 
-      // Generate authorization code
-      const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId);
+      // If no client_id is provided, we can't show a consent screen
+      // Generate code immediately for backward compatibility
+      if (!clientId) {
+        const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId);
+        const redirectUrl = new URL(redirect_uri);
+        redirectUrl.searchParams.set('code', code);
+        if (state && typeof state === 'string') {
+          redirectUrl.searchParams.set('state', state);
+        }
+        res.redirect(redirectUrl.toString());
+        return;
+      }
 
-      // Redirect to client's redirect_uri with the code
-      const redirectUrl = new URL(redirect_uri);
-      redirectUrl.searchParams.set('code', code);
-      
-      res.redirect(redirectUrl.toString());
+      // Check if user has already consented to this client
+      const hasConsent = await ConsentService.hasConsent(userId, clientId);
+
+      if (hasConsent) {
+        // User has already consented, generate code immediately
+        const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId);
+        const redirectUrl = new URL(redirect_uri);
+        redirectUrl.searchParams.set('code', code);
+        if (state && typeof state === 'string') {
+          redirectUrl.searchParams.set('state', state);
+        }
+        res.redirect(redirectUrl.toString());
+        return;
+      }
+
+      // User hasn't consented yet, redirect to consent screen
+      // Build consent URL with query parameters
+      const consentUrl = new URL(`${config.jwt.issuer}/consent`);
+      consentUrl.searchParams.set('client_id', clientId);
+      consentUrl.searchParams.set('redirect_uri', redirect_uri);
+      if (response_type && typeof response_type === 'string') {
+        consentUrl.searchParams.set('response_type', response_type);
+      }
+      if (scope && typeof scope === 'string') {
+        consentUrl.searchParams.set('scope', scope);
+      }
+      if (state && typeof state === 'string') {
+        consentUrl.searchParams.set('state', state);
+      }
+
+      res.redirect(consentUrl.toString());
     } catch (error) {
       console.error('Authorization error:', error);
       res.status(500).json({
         error: 'server_error',
-        error_description: 'Failed to generate authorization code',
+        error_description: 'Failed to process authorization request',
+      });
+    }
+  }
+
+  /**
+   * GET /consent
+   * Display consent screen with client information
+   */
+  static async consent(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { client_id, redirect_uri, scope, state } = req.query;
+
+      // Validate required parameters
+      if (!client_id || typeof client_id !== 'string') {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Missing or invalid client_id parameter',
+        });
+        return;
+      }
+
+      if (!redirect_uri || typeof redirect_uri !== 'string') {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Missing or invalid redirect_uri parameter',
+        });
+        return;
+      }
+
+      // User must be authenticated (via middleware)
+      if (!req.user) {
+        res.status(401).json({
+          error: 'unauthorized',
+          error_description: 'User must be authenticated',
+        });
+        return;
+      }
+
+      // Get client details
+      const client = await ClientService.getClient(client_id);
+      if (!client) {
+        res.status(400).json({
+          error: 'invalid_client',
+          error_description: 'Client not found',
+        });
+        return;
+      }
+
+      // Validate redirect_uri matches client's registered URIs
+      if (!client.redirectUris.includes(redirect_uri)) {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'redirect_uri not registered for this client',
+        });
+        return;
+      }
+
+      // Parse scopes
+      const requestedScopes = scope && typeof scope === 'string' 
+        ? scope.split(' ') 
+        : ['openid', 'profile', 'email'];
+
+      // Return consent screen data
+      res.json({
+        client: {
+          id: client.clientId,
+          name: client.name,
+        },
+        scopes: requestedScopes,
+        redirect_uri,
+        state: state && typeof state === 'string' ? state : undefined,
+      });
+    } catch (error) {
+      console.error('Consent screen error:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to load consent screen',
+      });
+    }
+  }
+
+  /**
+   * POST /auth/authorize
+   * Handle user consent decision (approve or deny)
+   */
+  static async handleConsent(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { client_id, redirect_uri, approved, scope, state } = req.body;
+
+      // Validate required parameters
+      if (!client_id || typeof client_id !== 'string') {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Missing or invalid client_id parameter',
+        });
+        return;
+      }
+
+      if (!redirect_uri || typeof redirect_uri !== 'string') {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Missing or invalid redirect_uri parameter',
+        });
+        return;
+      }
+
+      if (typeof approved !== 'boolean') {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Missing or invalid approved parameter',
+        });
+        return;
+      }
+
+      // User must be authenticated (via middleware)
+      if (!req.user) {
+        res.status(401).json({
+          error: 'unauthorized',
+          error_description: 'User must be authenticated',
+        });
+        return;
+      }
+
+      const userId = req.user.sub;
+
+      // Validate client exists
+      const client = await ClientService.getClient(client_id);
+      if (!client) {
+        res.status(400).json({
+          error: 'invalid_client',
+          error_description: 'Client not found',
+        });
+        return;
+      }
+
+      // Validate redirect_uri
+      if (!client.redirectUris.includes(redirect_uri)) {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'redirect_uri not registered for this client',
+        });
+        return;
+      }
+
+      const redirectUrl = new URL(redirect_uri);
+
+      // Handle denial
+      if (!approved) {
+        redirectUrl.searchParams.set('error', 'access_denied');
+        redirectUrl.searchParams.set('error_description', 'User denied authorization');
+        if (state && typeof state === 'string') {
+          redirectUrl.searchParams.set('state', state);
+        }
+        res.redirect(redirectUrl.toString());
+        return;
+      }
+
+      // Handle approval
+      // Parse scopes
+      const scopes = Array.isArray(scope) ? scope : 
+                     typeof scope === 'string' ? scope.split(' ') : 
+                     ['openid', 'profile', 'email'];
+
+      // Grant consent
+      await ConsentService.grantConsent(userId, client_id, scopes);
+
+      // Generate authorization code
+      const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, client_id);
+
+      // Redirect with authorization code
+      redirectUrl.searchParams.set('code', code);
+      if (state && typeof state === 'string') {
+        redirectUrl.searchParams.set('state', state);
+      }
+
+      res.redirect(redirectUrl.toString());
+    } catch (error) {
+      console.error('Handle consent error:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to process consent',
       });
     }
   }

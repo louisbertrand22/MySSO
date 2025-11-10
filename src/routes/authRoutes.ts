@@ -37,6 +37,12 @@ router.get('/login', AuthController.authorize);
 // Authorization endpoint
 router.get('/authorize', AuthController.authorize);
 
+// Consent screen endpoint (protected)
+router.get('/consent', authMiddleware, AuthController.consent);
+
+// Handle consent decision (protected)
+router.post('/auth/authorize', authMiddleware, AuthController.handleConsent);
+
 // Token endpoint
 router.post('/token', AuthController.token);
 
