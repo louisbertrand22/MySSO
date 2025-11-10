@@ -331,7 +331,7 @@ export class AuthController {
    */
   static async authorize(req: Request, res: Response): Promise<void> {
     try {
-      const { redirect_uri } = req.query;
+      const { redirect_uri, client_id } = req.query;
 
       // Validate redirect_uri parameter
       if (!redirect_uri || typeof redirect_uri !== 'string') {
@@ -342,11 +342,14 @@ export class AuthController {
         return;
       }
 
+      // Extract client_id if provided
+      const clientId = client_id && typeof client_id === 'string' ? client_id : undefined;
+
       // Validate redirect_uri is in whitelist
-      if (!AuthCodeService.isRedirectUriAllowed(redirect_uri)) {
+      if (!await AuthCodeService.isRedirectUriAllowed(redirect_uri, clientId)) {
         res.status(400).json({
           error: 'invalid_request',
-          error_description: 'redirect_uri not allowed',
+          error_description: 'redirect_uri not allowed for this client',
         });
         return;
       }
@@ -395,7 +398,7 @@ export class AuthController {
       }
 
       // Generate authorization code
-      const code = await AuthCodeService.generateAuthCode(userId, redirect_uri);
+      const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId);
 
       // Redirect to client's redirect_uri with the code
       const redirectUrl = new URL(redirect_uri);

@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client"
 import { randomUUID } from "crypto"
+import { ClientService } from "./clientService"
 
 const prisma = new PrismaClient()
 
@@ -25,11 +26,12 @@ export class AuthCodeService {
    * Generate a new authorization code for a user
    * @param userId - User ID
    * @param redirectUri - Redirect URI where the user will be sent
+   * @param clientId - Optional client ID to associate with the auth code
    * @returns Authorization code
    */
-  static async generateAuthCode(userId: string, redirectUri: string): Promise<string> {
+  static async generateAuthCode(userId: string, redirectUri: string, clientId?: string): Promise<string> {
     // Validate redirect URI
-    if (!this.isRedirectUriAllowed(redirectUri)) {
+    if (!await this.isRedirectUriAllowed(redirectUri, clientId)) {
       throw new Error('Invalid redirect_uri: not in whitelist')
     }
 
@@ -45,6 +47,7 @@ export class AuthCodeService {
         code,
         userId,
         redirectUri,
+        clientId: clientId || null,
         expiresAt,
       },
     })
@@ -105,10 +108,20 @@ export class AuthCodeService {
   /**
    * Validate if a redirect URI is in the whitelist
    * @param redirectUri - Redirect URI to validate
+   * @param clientId - Optional client ID to check against
    * @returns True if allowed, false otherwise
    */
-  static isRedirectUriAllowed(redirectUri: string): boolean {
-    // In development, be more permissive
+  static async isRedirectUriAllowed(redirectUri: string, clientId?: string): Promise<boolean> {
+    // If clientId is provided, check against client's registered URIs
+    if (clientId) {
+      const isAllowed = await ClientService.isRedirectUriAllowedForClient(
+        clientId,
+        redirectUri
+      )
+      return isAllowed
+    }
+
+    // Fallback: In development, be more permissive for backward compatibility
     if (process.env.NODE_ENV === 'development') {
       // Check if it's a localhost URL
       try {
@@ -121,7 +134,7 @@ export class AuthCodeService {
       }
     }
 
-    // Check against whitelist
+    // Check against legacy whitelist (for backward compatibility)
     return this.ALLOWED_REDIRECT_URIS.includes(redirectUri)
   }
 
