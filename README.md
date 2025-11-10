@@ -4,12 +4,13 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
 
 ## 🚀 Features
 
-- **OpenID Connect & OAuth2** - Full OIDC/OAuth2 protocol support
+- **OpenID Connect & OAuth2** - Full OIDC/OAuth2 protocol support with user consent screens
+- **User Consent Management** - Explicit user authorization for client applications
 - **RSA JWT Signing** - Secure token signing with RS256 algorithm
 - **Argon2id Password Hashing** - Modern, secure password hashing
 - **Prisma ORM** - Type-safe database access
 - **TypeScript** - Full type safety and modern JavaScript features
-- **Extensible Architecture** - Ready for MFA, consent screens, and admin UI
+- **Extensible Architecture** - Ready for MFA and admin UI
 
 ## 📋 Prerequisites
 
@@ -202,15 +203,13 @@ curl http://localhost:3000/.well-known/openid-configuration
 
 - PKCE support for enhanced mobile/SPA security
 - Rate limiting on authentication endpoints
-- Client registration and management
 - Scope-based access control
 
 - Multi-Factor Authentication (MFA)
-- User consent screens
 - Admin UI for client and user management
-- Session management
 - Account recovery
 - Email verification
+- Consent management UI (view/revoke consents)
 
 ## 📄 License
 

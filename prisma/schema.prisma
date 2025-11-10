@@ -18,6 +18,7 @@ model User {
   sessions      Session[]
   refreshTokens RefreshToken[]
   authCodes     AuthCode[]
+  consents      UserConsent[]
 }
 
 model Session {
@@ -52,12 +53,27 @@ model AuthCode {
 }
 
 model Client {
-  id            String     @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String
-  clientId      String     @unique
+  clientId      String        @unique
   clientSecret  String
   redirectUris  String[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   authCodes     AuthCode[]
+  consents      UserConsent[]
+}
+
+model UserConsent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  scopes    String[]
+  createdAt DateTime @default(now())
+
+  @@unique([userId, clientId])
+  @@index([userId])
+  @@index([clientId])
 }
