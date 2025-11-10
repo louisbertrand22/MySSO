@@ -58,10 +58,25 @@ export class AuthService {
     accessToken: string
     refreshToken: string
   }> {
-    // Generate access token with user email if provided
-    const accessToken = email
-      ? JwtService.sign({ sub: userId, email }, { expiresIn: "15m" })
-      : JwtService.sign({ sub: userId }, { expiresIn: "15m" })
+    // Fetch user to get createdAt timestamp
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { createdAt: true, email: true }
+    })
+
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    // Generate access token with user email and createdAt
+    const accessToken = JwtService.sign(
+      { 
+        sub: userId, 
+        email: email || user.email,
+        createdAt: user.createdAt.toISOString()
+      }, 
+      { expiresIn: "15m" }
+    )
 
     // Generate unique identifier for this refresh token (jti claim)
     const jti = randomBytes(16).toString("hex")
