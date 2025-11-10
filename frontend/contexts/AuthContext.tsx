@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (refreshToken) {
         try {
           await refreshAccessToken();
-        } catch (error) {
+        } catch {
           // Silently clear invalid/expired refresh token
           // This is expected behavior when tokens expire
           localStorage.removeItem('refreshToken');
