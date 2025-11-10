@@ -1,0 +1,52 @@
+﻿name: "Étape 9 – Logout sécurisé et révocation des sessions"
+description: "Implémenter la déconnexion complète avec suppression des refresh tokens et sessions."
+title: "[Étape 9] Logout sécurisé et révocation"
+labels:
+  - backend
+  - auth
+  - jwt
+  - security
+  - logout
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Objectif
+        Mettre en place la déconnexion sécurisée avec suppression des refresh tokens et invalidation des sessions actives.
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: "Tâches"
+      options:
+        - label: "Créer la route POST /auth/logout"
+        - label: "Supprimer le refresh token du cookie et de la base"
+        - label: "Ajouter la suppression globale (deleteMany) pour l’utilisateur"
+        - label: "Tester le logout côté front (cookie supprimé)"
+        - label: "Vérifier qu’aucun refresh token révoqué n’est accepté"
+        - label: "Optionnel – Invalider toutes les sessions sur tous les appareils"
+        - label: "Ajouter un log de sécurité (revocation complète)"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes d’implémentation"
+      description: "Recommandations et bonnes pratiques"
+      value: |
+        - Toujours supprimer le cookie HttpOnly côté client
+        - Ne jamais laisser un refresh token persister après déconnexion
+        - Penser à invalider les sessions en base pour le suivi des connexions
+        - Ajouter un champ `revokedAt` dans la table Session pour audit
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Livrables attendus :**
+        - Route /auth/logout fonctionnelle
+        - Cookie supprimé côté client
+        - Refresh token supprimé en base
+        - Tests Postman / Insomnia validés
