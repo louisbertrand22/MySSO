@@ -1,0 +1,61 @@
+﻿name: "Étape 15 – Implémentation OpenID Connect (OIDC) complète"
+description: "Ajouter les endpoints OIDC : discovery, authorize, token, userinfo et JWKS."
+title: "[Étape 15] Implémentation OpenID Connect (/.well-known, /authorize, /token, /userinfo)"
+labels:
+  - backend
+  - auth
+  - oidc
+  - security
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Objectif
+        Implémenter les endpoints OpenID Connect essentiels afin de rendre le SSO compatible OIDC :
+        - GET /.well-known/openid-configuration
+        - GET /jwks.json
+        - GET /authorize (Authorization Code flow, PKCE, state, nonce)
+        - POST /token (exchange code -> id_token + access_token + refresh_token)
+        - GET /userinfo
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: "Tâches principales"
+      options:
+        - label: "Implémenter GET /.well-known/openid-configuration"
+        - label: "Implémenter GET /jwks.json (JWKS) et joindre la clé active)"
+        - label: "Créer le modèle AuthCode dans Prisma (code, clientId, userId, redirectUri, nonce, code_challenge, expiresAt, used)"
+        - label: "Implémenter GET /authorize (validation client, redirection, consentement, stockage du code)"
+        - label: "Implémenter POST /token (vérifier code, PKCE, émettre id_token/access_token/refresh_token)"
+        - label: "Implémenter GET /userinfo (protéger par access_token et renvoyer les claims utilisateur)"
+        - label: "Gérer la suppression / marquage du code après usage (one-time use)"
+        - label: "Ajouter des tests manuels (Postman): full flow (authorize -> token -> userinfo)"
+        - label: "Documenter le endpoint discovery et exemples de requêtes"
+
+  - type: textarea
+    id: implementation_notes
+    attributes:
+      label: "Notes d'implémentation"
+      description: "Règles et bonnes pratiques à respecter"
+      value: |
+        - TLS obligatoire pour tous les endpoints.
+        - PKCE est requis pour les clients publics. Pour les clients confidentiels, supporter client_secret verification.
+        - Valider strictement redirect_uri (exact match contre Client.redirectUris list).
+        - Utiliser 'state' pour contrer CSRF et 'nonce' pour l'id_token replays.
+        - Signer les id_token avec RS256 et exposer la clé publique via /jwks.json.
+        - Les codes d'autorisation doivent expirer rapidement (ex: 60 seconds) et être marqués 'used' dès l'échange.
+        - Stocker refresh tokens hashed et faire rotation lors de l'usage.
+        - Fournir un exemple d'appel curl pour chaque endpoint dans la documentation projet.
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        Livrables attendus :
+        - Endpoints OIDC opérationnels (discovery, authorize, token, userinfo, jwks)
+        - Tests Postman / curl montrant le flux complet
+        - Documentation (README ou API.md) expliquant les paramètres obligatoires (state, nonce, code_challenge, code_verifier)
