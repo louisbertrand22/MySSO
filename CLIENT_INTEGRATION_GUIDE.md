@@ -1198,4 +1198,67 @@ For issues or questions:
 
 ---
 
+## Quick Reference Card
+
+### Essential Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/.well-known/openid-configuration` | GET | OIDC discovery |
+| `/authorize` | GET | Start authorization |
+| `/token` | POST | Exchange code for tokens |
+| `/userinfo` | GET | Get user information |
+| `/jwks.json` | GET | Public keys for JWT validation |
+| `/auth/refresh` | POST | Refresh access token |
+| `/auth/logout` | POST | Logout and revoke tokens |
+
+### Required Parameters
+
+**Authorization Request:**
+- `client_id` - Your client identifier (required)
+- `redirect_uri` - Callback URL (required)
+- `response_type` - Set to `code` (required)
+- `scope` - Requested scopes, e.g., `openid email profile` (required)
+- `state` - CSRF protection token (recommended)
+- `nonce` - Replay protection for ID token (recommended)
+- `code_challenge` - PKCE challenge (required for public clients)
+- `code_challenge_method` - `S256` or `plain` (required for public clients)
+
+**Token Request:**
+- `grant_type` - Set to `authorization_code` (required)
+- `code` - Authorization code from callback (required)
+- `redirect_uri` - Same as authorization request (required)
+- `client_id` - Your client identifier (optional but recommended)
+- `client_secret` - For confidential clients (required for confidential)
+- `code_verifier` - PKCE verifier (required if challenge was used)
+
+### Token Lifetimes
+
+| Token Type | Lifetime |
+|------------|----------|
+| Authorization Code | 60 seconds |
+| Access Token | 15 minutes |
+| Refresh Token | 7 days |
+
+### Standard Scopes
+
+| Scope | Returns |
+|-------|---------|
+| `openid` | Required for OIDC, returns `sub` claim |
+| `email` | User's email and email_verified |
+| `profile` | User's name and profile info |
+
+### Common HTTP Status Codes
+
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 302 | Redirect (authorization flow) |
+| 400 | Bad Request (invalid parameters) |
+| 401 | Unauthorized (invalid/expired token) |
+| 403 | Forbidden (insufficient scopes) |
+| 500 | Server Error |
+
+---
+
 **Happy integrating! 🚀**
