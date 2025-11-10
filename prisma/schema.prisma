@@ -40,16 +40,19 @@ model RefreshToken {
 }
 
 model AuthCode {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  clientId    String?
-  client      Client?  @relation(fields: [clientId], references: [clientId])
-  redirectUri String
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime
-  usedAt      DateTime?
+  id                    String   @id @default(cuid())
+  code                  String   @unique
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id])
+  clientId              String?
+  client                Client?  @relation(fields: [clientId], references: [clientId])
+  redirectUri           String
+  nonce                 String?
+  codeChallenge         String?
+  codeChallengeMethod   String?
+  createdAt             DateTime @default(now())
+  expiresAt             DateTime
+  usedAt                DateTime?
 }
 
 model Client {

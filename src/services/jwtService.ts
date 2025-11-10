@@ -87,6 +87,50 @@ export class JwtService {
   }
 
   /**
+   * Generate an OpenID Connect ID Token
+   * @param userId - User ID (sub claim)
+   * @param email - User email
+   * @param nonce - Optional nonce from authorization request
+   * @param audience - Client ID (aud claim)
+   * @returns Signed ID token
+   */
+  static generateIdToken(
+    userId: string,
+    email: string,
+    nonce?: string,
+    audience?: string
+  ): string {
+    const now = Math.floor(Date.now() / 1000);
+    
+    const payload: any = {
+      sub: userId,
+      email,
+      email_verified: true,
+      iat: now,
+      auth_time: now,
+    };
+
+    // Add nonce if provided (for replay attack prevention)
+    if (nonce) {
+      payload.nonce = nonce;
+    }
+
+    const options: jwt.SignOptions = {
+      algorithm: 'RS256',
+      issuer: config.jwt.issuer,
+      expiresIn: config.jwt.expiration,
+    };
+
+    // Add audience if provided
+    if (audience) {
+      options.audience = audience;
+    }
+
+    this.loadKeys();
+    return jwt.sign(payload, this.privateKey!, options);
+  }
+
+  /**
    * Get public key in JWK format for JWKS endpoint
    * @returns JWK public key
    */

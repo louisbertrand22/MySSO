@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client"
-import { randomUUID } from "crypto"
+import { randomUUID, createHash } from "crypto"
 import { ClientService } from "./clientService"
 
 const prisma = new PrismaClient()
@@ -27,9 +27,19 @@ export class AuthCodeService {
    * @param userId - User ID
    * @param redirectUri - Redirect URI where the user will be sent
    * @param clientId - Optional client ID to associate with the auth code
+   * @param nonce - Optional nonce for OIDC
+   * @param codeChallenge - Optional code challenge for PKCE
+   * @param codeChallengeMethod - Optional code challenge method for PKCE
    * @returns Authorization code
    */
-  static async generateAuthCode(userId: string, redirectUri: string, clientId?: string): Promise<string> {
+  static async generateAuthCode(
+    userId: string, 
+    redirectUri: string, 
+    clientId?: string,
+    nonce?: string,
+    codeChallenge?: string,
+    codeChallengeMethod?: string
+  ): Promise<string> {
     // Validate redirect URI
     if (!await this.isRedirectUriAllowed(redirectUri, clientId)) {
       throw new Error('Invalid redirect_uri: not in whitelist')
@@ -48,6 +58,9 @@ export class AuthCodeService {
         userId,
         redirectUri,
         clientId: clientId || null,
+        nonce: nonce || null,
+        codeChallenge: codeChallenge || null,
+        codeChallengeMethod: codeChallengeMethod || null,
         expiresAt,
       },
     })
@@ -57,15 +70,23 @@ export class AuthCodeService {
 
   /**
    * Validate and consume an authorization code
-   * Returns user ID and client ID if valid, null if invalid/expired/used
+   * Returns user ID, client ID, nonce, and PKCE info if valid, null if invalid/expired/used
    * @param code - Authorization code
    * @param redirectUri - Redirect URI to validate against
-   * @returns Object with userId and clientId if valid, null otherwise
+   * @param codeVerifier - Optional code verifier for PKCE
+   * @returns Object with userId, clientId, nonce, and PKCE info if valid, null otherwise
    */
   static async validateAndConsumeAuthCode(
     code: string,
-    redirectUri: string
-  ): Promise<{ userId: string; clientId: string | null } | null> {
+    redirectUri: string,
+    codeVerifier?: string
+  ): Promise<{ 
+    userId: string; 
+    clientId: string | null;
+    nonce: string | null;
+    codeChallenge: string | null;
+    codeChallengeMethod: string | null;
+  } | null> {
     // Find the auth code
     const authCode = await prisma.authCode.findUnique({
       where: { code },
@@ -93,6 +114,19 @@ export class AuthCodeService {
       return null
     }
 
+    // PKCE verification if code challenge was provided during authorization
+    if (authCode.codeChallenge) {
+      if (!codeVerifier) {
+        // Code verifier is required when code challenge was provided
+        return null
+      }
+
+      // Verify the code verifier against the code challenge
+      if (!this.verifyPKCE(codeVerifier, authCode.codeChallenge, authCode.codeChallengeMethod || 'plain')) {
+        return null
+      }
+    }
+
     // Mark code as used (single-use enforcement)
     await prisma.authCode.update({
       where: { code },
@@ -105,6 +139,9 @@ export class AuthCodeService {
     return {
       userId: authCode.userId,
       clientId: authCode.clientId,
+      nonce: authCode.nonce,
+      codeChallenge: authCode.codeChallenge,
+      codeChallengeMethod: authCode.codeChallengeMethod,
     }
   }
 
@@ -139,6 +176,30 @@ export class AuthCodeService {
 
     // Check against legacy whitelist (for backward compatibility)
     return this.ALLOWED_REDIRECT_URIS.includes(redirectUri)
+  }
+
+  /**
+   * Verify PKCE code verifier against code challenge
+   * @param codeVerifier - Code verifier provided by client
+   * @param codeChallenge - Code challenge stored during authorization
+   * @param codeChallengeMethod - Method used to generate the challenge (plain or S256)
+   * @returns True if verification succeeds, false otherwise
+   */
+  static verifyPKCE(codeVerifier: string, codeChallenge: string, codeChallengeMethod: string): boolean {
+    if (codeChallengeMethod === 'S256') {
+      // SHA-256 hash the code verifier and base64url encode it
+      const hash = createHash('sha256').update(codeVerifier).digest('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '')
+      return hash === codeChallenge
+    } else if (codeChallengeMethod === 'plain') {
+      // Plain method: code verifier must match code challenge exactly
+      return codeVerifier === codeChallenge
+    }
+    
+    // Unknown method
+    return false
   }
 
   /**
