@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { config, validateConfig } from './config/env';
 import authRoutes from './routes/authRoutes';
 import { JwtService } from './services/jwtService';
@@ -11,7 +12,11 @@ validateConfig();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

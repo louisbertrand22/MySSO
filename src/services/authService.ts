@@ -49,6 +49,7 @@ export class AuthService {
 
   /**
    * Generate both access and refresh tokens for a user
+   * Also creates a session in the database for tracking
    * @param userId - User ID
    * @param email - User email (optional, included in access token)
    * @returns Object containing accessToken and refreshToken
@@ -77,6 +78,14 @@ export class AuthService {
         userId,
         token: refreshToken,
         expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000), // 7 days
+      },
+    })
+
+    // Create a session for tracking
+    await prisma.session.create({
+      data: {
+        userId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000), // 7 days (same as refresh token)
       },
     })
 
