@@ -43,8 +43,21 @@ model AuthCode {
   code        String   @unique
   userId      String
   user        User     @relation(fields: [userId], references: [id])
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [clientId])
   redirectUri String
   createdAt   DateTime @default(now())
   expiresAt   DateTime
   usedAt      DateTime?
+}
+
+model Client {
+  id            String     @id @default(cuid())
+  name          String
+  clientId      String     @unique
+  clientSecret  String
+  redirectUris  String[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  authCodes     AuthCode[]
 }

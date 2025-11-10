@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { config, validateConfig } from './config/env';
 import authRoutes from './routes/authRoutes';
+import clientRoutes from './routes/clientRoutes';
 import { JwtService } from './services/jwtService';
 
 // Validate configuration
@@ -80,6 +81,9 @@ app.get('/test/jwt', (_req: Request, res: Response) => {
 
 // Mount auth routes
 app.use('/', authRoutes);
+
+// Mount client routes
+app.use('/', clientRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
