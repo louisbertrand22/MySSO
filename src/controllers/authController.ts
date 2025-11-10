@@ -66,8 +66,16 @@ export class AuthController {
         return;
       }
 
-      const accessToken = AuthService.generateAccessToken(user.id);
-      const refreshToken = AuthService.generateRefreshToken(user.id);
+      // Generate tokens with user email in payload
+      const accessToken = JwtService.sign({ 
+        sub: user.id, 
+        email: user.email 
+      }, { expiresIn: "15m" });
+      
+      const refreshToken = JwtService.sign({ 
+        sub: user.id, 
+        type: "refresh" 
+      }, { expiresIn: "7d" });
 
       await prisma.refreshToken.create({ 
         data: { 
@@ -102,7 +110,8 @@ export class AuthController {
 
       const prisma = AuthService.getPrisma();
       const stored = await prisma.refreshToken.findUnique({ 
-        where: { token: refreshToken } 
+        where: { token: refreshToken },
+        include: { user: true }
       });
 
       if (!stored) {
@@ -117,7 +126,12 @@ export class AuthController {
         return;
       }
 
-      const newAccessToken = AuthService.generateAccessToken(stored.userId);
+      // Generate new access token with email
+      const newAccessToken = JwtService.sign({ 
+        sub: stored.userId,
+        email: stored.user.email
+      }, { expiresIn: "15m" });
+      
       res.json({ accessToken: newAccessToken });
     } catch (error) {
       console.error('Refresh error:', error);
