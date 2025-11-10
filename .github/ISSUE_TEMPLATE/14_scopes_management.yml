@@ -1,0 +1,52 @@
+﻿name: "Étape 14 – Gestion des scopes et permissions fines"
+description: "Implémenter la gestion des scopes OAuth2/OIDC pour les accès granulaire aux données utilisateur."
+title: "[Étape 14] Gestion des scopes et permissions fines"
+labels:
+  - auth
+  - security
+  - backend
+  - prisma
+  - sso
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Objectif
+        Permettre aux applications clientes de demander des scopes précis (openid, email, profile, etc.) et les associer à des consentements utilisateurs.
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: "Tâches"
+      options:
+        - label: "Créer les modèles Scope et UserConsentScope dans Prisma"
+        - label: "Créer le script de seed pour insérer les scopes par défaut"
+        - label: "Adapter la route /auth/authorize pour enregistrer les scopes accordés"
+        - label: "Afficher les scopes demandés dans la page de consentement"
+        - label: "Inclure les scopes autorisés dans le token JWT"
+        - label: "Créer un middleware requireScope(scope)"
+        - label: "Tester un endpoint protégé avec scope (ex: /admin)"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes d’implémentation"
+      description: "Conseils et bonnes pratiques"
+      value: |
+        - Ne jamais accorder de scopes non déclarés par le client
+        - Gérer les scopes dans le consentement utilisateur
+        - Implémenter une vérification stricte côté API
+        - Documenter la liste des scopes disponibles
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Livrables attendus :**
+        - Table Scope et UserConsentScope créées
+        - Middleware requireScope opérationnel
+        - Scopes affichés et sélectionnés dans l’écran de consentement
+        - Tokens JWT contenant les scopes corrects
