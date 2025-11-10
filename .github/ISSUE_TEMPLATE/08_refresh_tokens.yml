@@ -1,0 +1,60 @@
+﻿name: "Étape 8 – Gestion des Refresh Tokens"
+description: "Implémenter la rotation sécurisée des refresh tokens côté backend."
+title: "[Étape 8] Gestion des Refresh Tokens"
+labels:
+  - backend
+  - auth
+  - jwt
+  - security
+  - refresh-token
+assignees:
+  - github-copilot
+  - YOUR_GITHUB_USERNAME
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Objectif
+        Implémenter le système de refresh tokens avec rotation, expiration et sécurisation des sessions utilisateur.
+
+  - type: checkboxes
+    id: tasks
+    attributes:
+      label: "Tâches"
+      options:
+        - label: "Créer un service generateTokens() pour JWT + refresh token"
+        - label: "Créer la route POST /auth/refresh"
+        - label: "Vérifier l’expiration du refresh token"
+        - label: "Supprimer le refresh token utilisé (rotation)"
+        - label: "Générer un nouveau couple accessToken / refreshToken"
+        - label: "Tester le scénario complet (login → refresh)"
+        - label: "Gérer les erreurs (token expiré, invalide, utilisateur supprimé)"
+        - label: "Optionnel — Supprimer tous les refresh tokens à la déconnexion"
+
+  - type: input
+    id: refresh_expiry
+    attributes:
+      label: "Durée d’expiration du refresh token"
+      description: "Durée recommandée en jours."
+      placeholder: "7"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes d’implémentation"
+      description: "Consignes et recommandations de sécurité."
+      value: |
+        - Toujours supprimer l'ancien refresh token lors de l'émission d'un nouveau.
+        - Utiliser un cookie HttpOnly pour le stocker côté client.
+        - Ne jamais exposer le refresh token dans les headers ou localStorage.
+        - Implémenter la suppression globale (deleteMany) lors du logout.
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Livrables attendus :**
+        - Route /auth/refresh opérationnelle
+        - Rotation de tokens vérifiée
+        - Test Postman / Insomnia réussi
+        - Capture d’écran du test (avant/après refresh)
