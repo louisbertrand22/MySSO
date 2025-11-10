@@ -12,6 +12,7 @@ interface AuthContextType {
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
+  setTokens: (accessToken: string, refreshToken: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,7 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await refreshAccessToken();
         } catch (error) {
-          console.error('Failed to refresh token on init:', error);
+          // Silently clear invalid/expired refresh token
+          // This is expected behavior when tokens expire
           localStorage.removeItem('refreshToken');
         }
       }
@@ -90,6 +92,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('refreshToken');
   };
 
+  const setTokens = (accessToken: string, refreshToken: string) => {
+    // Store access token in memory
+    setAccessToken(accessToken);
+    
+    // Store refresh token in localStorage
+    localStorage.setItem('refreshToken', refreshToken);
+    
+    // Decode and set user from access token
+    const userData = ApiService.getUserFromToken(accessToken);
+    setUser(userData);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -100,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshAccessToken,
+        setTokens,
       }}
     >
       {children}
