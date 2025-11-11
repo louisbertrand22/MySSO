@@ -2,6 +2,8 @@
 
 Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 support.
 
+> **📖 For Client Developers**: If you're looking to integrate your application with MySSO, see the **[Client Integration Guide](CLIENT_INTEGRATION_GUIDE.md)** for complete step-by-step instructions, code examples, and best practices.
+
 ## 🚀 Features
 
 - **Full OpenID Connect Support** - Complete OIDC implementation with discovery, JWKS, ID tokens
@@ -150,8 +152,32 @@ curl -X POST http://localhost:3000/token \
 ```
 
 **📖 Complete Documentation**: 
+- **[Client Integration Guide](CLIENT_INTEGRATION_GUIDE.md)** - **START HERE** for integrating your app with MySSO
 - [OpenID Connect Endpoints](docs/OIDC_ENDPOINTS.md) - Full OIDC implementation guide
 - [OAuth2 Flow Guide](docs/OAUTH2_FLOW.md) - OAuth2 authorization code flow
+
+## 🔌 Integrating Your Application
+
+To integrate your application with MySSO as an identity provider:
+
+1. **Read the [Client Integration Guide](CLIENT_INTEGRATION_GUIDE.md)** - Complete guide with code examples
+2. **Register your application** with the MySSO administrator
+3. **Implement OIDC/OAuth2 flow** using the provided examples
+4. **Test your integration** with the development environment
+
+The Client Integration Guide includes:
+- Step-by-step integration instructions
+- Code examples for JavaScript, Python, Node.js, React, and more
+- PKCE implementation guides
+- Security best practices
+- Troubleshooting and FAQ
+
+**Quick Links for Developers:**
+- Discovery Endpoint: `GET /.well-known/openid-configuration`
+- Authorization: `GET /authorize`
+- Token Exchange: `POST /token`
+- User Info: `GET /userinfo`
+- JWKS (for token validation): `GET /jwks.json`
 
 ## 🗂️ Project Structure
 
