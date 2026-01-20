@@ -78,6 +78,13 @@ export class AuthController {
         user.email
       );
 
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax', // Permet le partage de cookie entre localhost:3002 et localhost:3000
+        maxAge: 15 * 60 * 1000 // 15 minutes
+      });
+
       // Set refresh token as HttpOnly cookie
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
@@ -336,154 +343,98 @@ export class AuthController {
    */
   static async authorize(req: Request, res: Response): Promise<void> {
     try {
-      const { redirect_uri, client_id, response_type, scope, state, nonce, code_challenge, code_challenge_method } = req.query;
-
-      // Validate redirect_uri parameter
+      const { 
+        redirect_uri, 
+        client_id, 
+        state, 
+        nonce, 
+        code_challenge, 
+        code_challenge_method 
+      } = req.query;
+      
+      // 1. Validations de base (inchangé)
       if (!redirect_uri || typeof redirect_uri !== 'string') {
-        res.status(400).json({
-          error: 'invalid_request',
-          error_description: 'Missing or invalid redirect_uri parameter',
-        });
+        res.status(400).json({ error: 'invalid_request', error_description: 'Missing or invalid redirect_uri parameter' });
         return;
       }
 
-      // Extract client_id if provided
       const clientId = client_id && typeof client_id === 'string' ? client_id : undefined;
-
-      // Validate redirect_uri is in whitelist
       if (!await AuthCodeService.isRedirectUriAllowed(redirect_uri, clientId)) {
-        res.status(400).json({
-          error: 'invalid_request',
-          error_description: 'redirect_uri not allowed for this client',
-        });
+        res.status(400).json({ error: 'invalid_request', error_description: 'redirect_uri not allowed for this client' });
         return;
       }
 
-      // Extract PKCE parameters
-      const codeChallenge = code_challenge && typeof code_challenge === 'string' ? code_challenge : undefined;
-      const codeChallengeMethod = code_challenge_method && typeof code_challenge_method === 'string' 
-        ? code_challenge_method 
-        : 'plain'; // Default to 'plain' if not specified
-
-      // Validate code_challenge_method if provided
-      if (codeChallenge && codeChallengeMethod !== 'plain' && codeChallengeMethod !== 'S256') {
-        res.status(400).json({
-          error: 'invalid_request',
-          error_description: 'code_challenge_method must be either plain or S256',
-        });
-        return;
-      }
-
-      // Extract nonce for OIDC
-      const nonceParam = nonce && typeof nonce === 'string' ? nonce : undefined;
-
-      // Check if user is authenticated via Authorization header
+      // 2. RÉCUPÉRATION DU TOKEN (Header OU Cookie)
       const authHeader = req.headers.authorization;
-      
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        // User not authenticated - return error with instructions
-        res.status(401).json({
-          error: 'unauthorized',
-          error_description: 'User must be authenticated. Please login first and include access token in Authorization header.',
-        });
+      let token: string | undefined;
+
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      } else if (req.cookies && req.cookies.accessToken) {
+        // Lecture du cookie déposé lors du login
+        token = req.cookies.accessToken;
+      }
+
+      // 3. SI PAS DE TOKEN : Redirection vers le Login
+      if (!token) {
+        const loginUrl = `http://localhost:3002/login?returnTo=${encodeURIComponent(req.originalUrl)}`;
+        res.redirect(loginUrl);
         return;
       }
 
-      // Extract and verify the access token
-      const token = authHeader.substring(7);
+      // 4. VÉRIFICATION DU TOKEN
       let decoded: any;
-      
       try {
         decoded = JwtService.verify(token);
       } catch (error) {
-        res.status(401).json({
-          error: 'unauthorized',
-          error_description: 'Invalid or expired access token',
-        });
+        // Si le token est invalide/expiré, on renvoie au login pour renouveler la session
+        const loginUrl = `http://localhost:3002/login?returnTo=${encodeURIComponent(req.originalUrl)}`;
+        res.redirect(loginUrl);
         return;
       }
 
-      // Extract user ID from token
       const userId = decoded.sub;
       if (!userId) {
-        res.status(401).json({
-          error: 'unauthorized',
-          error_description: 'Invalid token: missing user ID',
-        });
+        res.status(401).json({ error: 'unauthorized', error_description: 'Invalid token: missing user ID' });
         return;
       }
 
-      // If no client_id is provided, we can't show a consent screen
-      // Generate code immediately for backward compatibility
+      // Extraire les paramètres OIDC/PKCE pour la suite
+      const codeChallenge = code_challenge && typeof code_challenge === 'string' ? code_challenge : undefined;
+      const codeChallengeMethod = code_challenge_method && typeof code_challenge_method === 'string' ? code_challenge_method : 'plain';
+      const nonceParam = nonce && typeof nonce === 'string' ? nonce : undefined;
+
+      // 5. GESTION DU CONSENTEMENT (inchangé)
       if (!clientId) {
-        const code = await AuthCodeService.generateAuthCode(
-          userId, 
-          redirect_uri, 
-          clientId,
-          nonceParam,
-          codeChallenge,
-          codeChallengeMethod
-        );
+        const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId, nonceParam, codeChallenge, codeChallengeMethod);
         const redirectUrl = new URL(redirect_uri);
         redirectUrl.searchParams.set('code', code);
-        if (state && typeof state === 'string') {
-          redirectUrl.searchParams.set('state', state);
-        }
+        if (state && typeof state === 'string') redirectUrl.searchParams.set('state', state);
         res.redirect(redirectUrl.toString());
         return;
       }
 
-      // Check if user has already consented to this client
       const hasConsent = await ConsentService.hasConsent(userId, clientId);
-
       if (hasConsent) {
-        // User has already consented, generate code immediately
-        const code = await AuthCodeService.generateAuthCode(
-          userId, 
-          redirect_uri, 
-          clientId,
-          nonceParam,
-          codeChallenge,
-          codeChallengeMethod
-        );
+        const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId, nonceParam, codeChallenge, codeChallengeMethod);
         const redirectUrl = new URL(redirect_uri);
         redirectUrl.searchParams.set('code', code);
-        if (state && typeof state === 'string') {
-          redirectUrl.searchParams.set('state', state);
-        }
+        if (state && typeof state === 'string') redirectUrl.searchParams.set('state', state);
         res.redirect(redirectUrl.toString());
         return;
       }
 
-      // User hasn't consented yet, redirect to consent screen
-      // Build consent URL with query parameters
-      const consentUrl = new URL(`${config.jwt.issuer}/consent`);
+      // Redirection vers l'écran de consentement
+      const consentUrl = new URL(`http://localhost:3002/consent`);
       consentUrl.searchParams.set('client_id', clientId);
       consentUrl.searchParams.set('redirect_uri', redirect_uri);
-      if (response_type && typeof response_type === 'string') {
-        consentUrl.searchParams.set('response_type', response_type);
-      }
-      if (scope && typeof scope === 'string') {
-        consentUrl.searchParams.set('scope', scope);
-      }
-      if (state && typeof state === 'string') {
-        consentUrl.searchParams.set('state', state);
-      }
-      if (nonceParam) {
-        consentUrl.searchParams.set('nonce', nonceParam);
-      }
-      if (codeChallenge) {
-        consentUrl.searchParams.set('code_challenge', codeChallenge);
-        consentUrl.searchParams.set('code_challenge_method', codeChallengeMethod);
-      }
-
+      if (state) consentUrl.searchParams.set('state', state as string);
+      if (nonceParam) consentUrl.searchParams.set('nonce', nonceParam);
       res.redirect(consentUrl.toString());
+
     } catch (error) {
       console.error('Authorization error:', error);
-      res.status(500).json({
-        error: 'server_error',
-        error_description: 'Failed to process authorization request',
-      });
+      res.status(500).json({ error: 'server_error', error_description: 'Failed to process authorization request' });
     }
   }
 

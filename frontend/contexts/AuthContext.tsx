@@ -34,21 +34,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const userData = ApiService.getUserFromToken(response.accessToken);
     setUser(userData);
+    localStorage.setItem('accessToken', response.accessToken);
   };
 
-  // Load refresh token from localStorage and attempt to refresh on mount
+
   useEffect(() => {
     const initAuth = async () => {
+      // 1. On récupère les deux tokens
+      const accessToken = localStorage.getItem('accessToken');
       const refreshToken = localStorage.getItem('refreshToken');
+
       if (refreshToken) {
         try {
           await refreshAccessToken();
         } catch {
-          // Silently clear invalid/expired refresh token
-          // This is expected behavior when tokens expire
           localStorage.removeItem('refreshToken');
+          localStorage.removeItem('accessToken');
+        }
+      } else if (accessToken) {
+        // Si on a un access token mais pas de refresh, 
+        // on devrait au moins essayer de récupérer les infos user
+        try {
+          const res = await fetch('http://localhost:3000/auth/me', {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          const userData = await res.json();
+          setUser(userData.user);
+        } catch {
+          localStorage.removeItem('accessToken');
         }
       }
+      
+      // 2. On indique que l'application a fini de vérifier l'état initial
       setIsLoading(false);
     };
 
@@ -56,17 +73,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
-    const response = await ApiService.login(credentials);
-    
-    // Store access token in memory
-    setAccessToken(response.accessToken);
-    
-    // Store refresh token in localStorage (consider HttpOnly cookie in production)
-    localStorage.setItem('refreshToken', response.refreshToken);
-    
-    // Decode and set user from access token
-    const userData = ApiService.getUserFromToken(response.accessToken);
-    setUser(userData);
+    try {
+      const response = await fetch('http://localhost:3000/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error('Login failed');
+      
+      const data = await response.json();
+      // Stockage du token (indispensable pour que le backend reconnaisse l'utilisateur après)
+      localStorage.setItem('accessToken', data.accessToken); 
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
+      setUser(data.user);
+      return data; 
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
   };
 
   const register = async (credentials: RegisterCredentials) => {

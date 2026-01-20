@@ -18,7 +18,7 @@ const app = express();
 // CORS configuration - restrict to specific origins in production
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:5173'];
+  : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:3002'];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -37,7 +37,8 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 // Cookie parser for HttpOnly cookies
