@@ -8,14 +8,21 @@ function ConsentContent() {
   const clientId = searchParams.get('client_id');
 
   const handleApprove = async () => {
-  // Au lieu de fetch, on redirige l'utilisateur vers le backend 
-  // pour qu'il traite le POST et redirige physiquement le navigateur.
-  const params = new URLSearchParams(searchParams.toString());
-  params.set('approved', 'true');
-  
-  // On redirige vers l'endpoint du back qui va générer le code et rediriger vers 3001
-  window.location.href = `http://localhost:3000/authorize?${params.toString()}`;
-};
+    // Au lieu de fetch, on redirige l'utilisateur vers le backend 
+    // pour qu'il traite le POST et redirige physiquement le navigateur.
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('approved', 'true');
+    
+    // On redirige vers l'endpoint du back qui va générer le code et rediriger vers 3001
+    window.location.href = `http://localhost:3000/authorize?${params.toString()}`;
+  };
+
+  const handleDeny = async () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('approved', 'false');
+    
+    window.location.href = `http://localhost:3000/authorize?${params.toString()}`;
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -31,7 +38,12 @@ function ConsentContent() {
           >
             Accepter
           </button>
-          <button className="bg-gray-200 px-6 py-2 rounded">Refuser</button>
+          <button 
+            onClick={handleDeny}
+            className="bg-gray-200 px-6 py-2 rounded hover:bg-gray-300"
+          >
+            Refuser
+          </button>
         </div>
       </div>
     </div>

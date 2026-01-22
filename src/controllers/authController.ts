@@ -349,7 +349,8 @@ export class AuthController {
         state, 
         nonce, 
         code_challenge, 
-        code_challenge_method 
+        code_challenge_method,
+        approved
       } = req.query;
       
       // 1. Validations de base (inchangé)
@@ -404,7 +405,7 @@ export class AuthController {
       const codeChallengeMethod = code_challenge_method && typeof code_challenge_method === 'string' ? code_challenge_method : 'plain';
       const nonceParam = nonce && typeof nonce === 'string' ? nonce : undefined;
 
-      // 5. GESTION DU CONSENTEMENT (inchangé)
+      // 5. GESTION DU CONSENTEMENT
       if (!clientId) {
         const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId, nonceParam, codeChallenge, codeChallengeMethod);
         const redirectUrl = new URL(redirect_uri);
@@ -412,6 +413,38 @@ export class AuthController {
         if (state && typeof state === 'string') redirectUrl.searchParams.set('state', state);
         res.redirect(redirectUrl.toString());
         return;
+      }
+
+      // Check if user is returning from consent page with a decision
+      if (approved !== undefined) {
+        const redirectUrl = new URL(redirect_uri);
+        
+        // Handle denial
+        if (approved === 'false') {
+          redirectUrl.searchParams.set('error', 'access_denied');
+          redirectUrl.searchParams.set('error_description', 'User denied authorization');
+          if (state && typeof state === 'string') {
+            redirectUrl.searchParams.set('state', state);
+          }
+          res.redirect(redirectUrl.toString());
+          return;
+        }
+        
+        // Handle approval
+        if (approved === 'true') {
+          // Grant consent with default scopes
+          const scopes = ScopeService.getDefaultScopes();
+          await ConsentService.grantConsent(userId, clientId, scopes);
+          
+          // Generate authorization code
+          const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId, nonceParam, codeChallenge, codeChallengeMethod);
+          redirectUrl.searchParams.set('code', code);
+          if (state && typeof state === 'string') {
+            redirectUrl.searchParams.set('state', state);
+          }
+          res.redirect(redirectUrl.toString());
+          return;
+        }
       }
 
       const hasConsent = await ConsentService.hasConsent(userId, clientId);
