@@ -22,6 +22,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper function to check if a token is expired or about to expire (within 5 minutes)
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp;
+      if (!exp) return true;
+      
+      // Check if token expires in less than 5 minutes (300 seconds)
+      const now = Math.floor(Date.now() / 1000);
+      const bufferTime = 300; // 5 minutes buffer
+      return exp < (now + bufferTime);
+    } catch {
+      return true; // If we can't parse it, consider it expired
+    }
+  };
+
   const refreshAccessToken = async () => {
     const refreshToken = localStorage.getItem('refreshToken');
     
@@ -40,32 +56,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      // 1. On récupère les deux tokens
+      // 1. Get both tokens from localStorage
       const accessToken = localStorage.getItem('accessToken');
       const refreshToken = localStorage.getItem('refreshToken');
 
-      if (refreshToken) {
+      if (accessToken && !isTokenExpired(accessToken)) {
+        // Access token is still valid, use it directly
+        try {
+          setAccessToken(accessToken);
+          const userData = ApiService.getUserFromToken(accessToken);
+          setUser(userData);
+        } catch {
+          // If token parsing fails, fall through to refresh logic
+          localStorage.removeItem('accessToken');
+        }
+      } else if (refreshToken) {
+        // Access token is expired or missing, but we have a refresh token
         try {
           await refreshAccessToken();
         } catch {
+          // Refresh failed, clear tokens
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('accessToken');
         }
-      } else if (accessToken) {
-        // Si on a un access token mais pas de refresh, 
-        // on devrait au moins essayer de récupérer les infos user
-        try {
-          const res = await fetch('http://localhost:3000/auth/me', {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-          });
-          const userData = await res.json();
-          setUser(userData.user);
-        } catch {
-          localStorage.removeItem('accessToken');
-        }
+      } else {
+        // No valid tokens, user needs to login
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
       }
       
-      // 2. On indique que l'application a fini de vérifier l'état initial
+      // 2. Indicate that the app has finished checking the initial state
       setIsLoading(false);
     };
 
@@ -84,8 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response.ok) throw new Error('Login failed');
       
       const data = await response.json();
-      // Stockage du token (indispensable pour que le backend reconnaisse l'utilisateur après)
-      localStorage.setItem('accessToken', data.accessToken); 
+      // Store tokens and set state
+      localStorage.setItem('accessToken', data.accessToken);
+      setAccessToken(data.accessToken);
       if (data.refreshToken) {
         localStorage.setItem('refreshToken', data.refreshToken);
       }
@@ -118,14 +139,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);
     setUser(null);
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('accessToken');
   };
 
   const setTokens = (accessToken: string, refreshToken: string) => {
-    // Store access token in memory
-    setAccessToken(accessToken);
-    
-    // Store refresh token in localStorage
+    // Store tokens in localStorage
+    localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    
+    // Set access token in state
+    setAccessToken(accessToken);
     
     // Decode and set user from access token
     const userData = ApiService.getUserFromToken(accessToken);
