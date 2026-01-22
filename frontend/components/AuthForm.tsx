@@ -20,10 +20,15 @@ export default function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
   // Load saved email on component mount (only for login mode)
   useEffect(() => {
     if (mode === 'login') {
-      const savedEmail = localStorage.getItem('savedUsername');
-      if (savedEmail) {
-        setEmail(savedEmail);
-        setRememberMe(true);
+      try {
+        const savedEmail = localStorage.getItem('savedUsername');
+        if (savedEmail) {
+          setEmail(savedEmail);
+          setRememberMe(true);
+        }
+      } catch (error) {
+        // localStorage might not be available (e.g., private browsing mode)
+        console.warn('Failed to load saved email:', error);
       }
     }
   }, [mode]);
@@ -93,10 +98,15 @@ export default function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
     try {
       // Save or remove username based on rememberMe checkbox (only for login)
       if (mode === 'login') {
-        if (rememberMe) {
-          localStorage.setItem('savedUsername', email);
-        } else {
-          localStorage.removeItem('savedUsername');
+        try {
+          if (rememberMe) {
+            localStorage.setItem('savedUsername', email);
+          } else {
+            localStorage.removeItem('savedUsername');
+          }
+        } catch (error) {
+          // localStorage might not be available (e.g., private browsing mode)
+          console.warn('Failed to save/remove email:', error);
         }
       }
       
@@ -180,7 +190,18 @@ export default function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
             name="remember-me"
             type="checkbox"
             checked={rememberMe}
-            onChange={(e) => setRememberMe(e.target.checked)}
+            onChange={(e) => {
+              const isChecked = e.target.checked;
+              setRememberMe(isChecked);
+              // Immediately remove saved email when unchecked for better UX
+              if (!isChecked) {
+                try {
+                  localStorage.removeItem('savedUsername');
+                } catch (error) {
+                  console.warn('Failed to remove saved email:', error);
+                }
+              }
+            }}
             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
           />
           <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
