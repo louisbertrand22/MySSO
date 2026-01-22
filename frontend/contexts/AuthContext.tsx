@@ -25,7 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Helper function to check if a token is expired or about to expire (within 5 minutes)
   const isTokenExpired = (token: string): boolean => {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      // Validate JWT format (should have 3 parts separated by dots)
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      
+      const payload = JSON.parse(atob(parts[1]));
       const exp = payload.exp;
       if (!exp) return true;
       
@@ -46,9 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const response = await ApiService.refresh(refreshToken);
-    setAccessToken(response.accessToken);
     
     const userData = ApiService.getUserFromToken(response.accessToken);
+    if (!userData) {
+      throw new Error('Invalid token payload');
+    }
+    
+    setAccessToken(response.accessToken);
     setUser(userData);
     localStorage.setItem('accessToken', response.accessToken);
   };
@@ -63,11 +71,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (accessToken && !isTokenExpired(accessToken)) {
         // Access token is still valid, use it directly
         try {
-          setAccessToken(accessToken);
           const userData = ApiService.getUserFromToken(accessToken);
-          setUser(userData);
+          if (userData) {
+            setAccessToken(accessToken);
+            setUser(userData);
+          } else {
+            // Token parsing succeeded but returned null - invalid payload
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+          }
         } catch {
-          // If token parsing fails, fall through to refresh logic
+          // If token parsing fails, clear it and try refresh
           localStorage.removeItem('accessToken');
         }
       } else if (refreshToken) {
@@ -143,6 +157,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const setTokens = (accessToken: string, refreshToken: string) => {
+    // Decode and validate user from access token
+    const userData = ApiService.getUserFromToken(accessToken);
+    if (!userData) {
+      throw new Error('Invalid token payload');
+    }
+    
     // Store tokens in localStorage
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
@@ -150,8 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set access token in state
     setAccessToken(accessToken);
     
-    // Decode and set user from access token
-    const userData = ApiService.getUserFromToken(accessToken);
+    // Set user from decoded token
     setUser(userData);
   };
 
