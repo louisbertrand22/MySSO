@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -15,6 +15,18 @@ export default function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // Load saved email on component mount (only for login mode)
+  useEffect(() => {
+    if (mode === 'login') {
+      const savedEmail = localStorage.getItem('savedUsername');
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    }
+  }, [mode]);
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -79,6 +91,15 @@ export default function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
 
     setIsSubmitting(true);
     try {
+      // Save or remove username based on rememberMe checkbox (only for login)
+      if (mode === 'login') {
+        if (rememberMe) {
+          localStorage.setItem('savedUsername', email);
+        } else {
+          localStorage.removeItem('savedUsername');
+        }
+      }
+      
       await onSubmit(email, password);
     } finally {
       setIsSubmitting(false);
@@ -149,6 +170,22 @@ export default function AuthForm({ mode, onSubmit, error }: AuthFormProps) {
               className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
+        </div>
+      )}
+
+      {mode === 'login' && (
+        <div className="flex items-center">
+          <input
+            id="remember-me"
+            name="remember-me"
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+          />
+          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+            Remember my email
+          </label>
         </div>
       )}
 
