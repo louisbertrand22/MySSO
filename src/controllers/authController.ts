@@ -93,7 +93,15 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
-      res.json({ accessToken, refreshToken });
+      res.json({ 
+        accessToken, 
+        refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          createdAt: user.createdAt
+        }
+      });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ 
