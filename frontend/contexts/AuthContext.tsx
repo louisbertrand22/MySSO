@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const userData = ApiService.getUserFromToken(response.accessToken);
     if (!userData) {
-      throw new Error('Invalid token payload');
+      throw new Error('Failed to extract user data from refreshed access token');
     }
     
     setAccessToken(response.accessToken);
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Decode and validate user from access token
     const userData = ApiService.getUserFromToken(accessToken);
     if (!userData) {
-      throw new Error('Invalid token payload');
+      throw new Error('Failed to extract user data from provided access token');
     }
     
     // Store tokens in localStorage
