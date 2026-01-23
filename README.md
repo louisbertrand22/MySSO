@@ -4,7 +4,9 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
 
 > **📖 For Client Developers**: If you're looking to integrate your application with MySSO, see the **[Client Integration Guide](CLIENT_INTEGRATION_GUIDE.md)** for complete step-by-step instructions, code examples, and best practices.
 
-> **☁️ Deploying to Production?**: See the **[Supabase Migration Guide](SUPABASE_MIGRATION.md)** for instructions on using Supabase as your managed PostgreSQL database.
+> **☁️ Deploying to Render?**: See the **[Render Deployment Guide](RENDER_DEPLOYMENT.md)** for complete instructions on deploying to Render with environment configuration.
+
+> **🗄️ Using Supabase Database?**: See the **[Supabase Migration Guide](SUPABASE_MIGRATION.md)** for instructions on using Supabase as your managed PostgreSQL database.
 
 ## 🚀 Features
 
@@ -259,11 +261,17 @@ MySSO/
 ### Production Checklist
 - ✅ Use strong DATABASE_URL with secure credentials
 - ✅ Set NODE_ENV=production to enable HTTPS-only cookies
+- ✅ Set BASE_URL to your production HTTPS URL
+- ✅ Change JWT_SECRET from default value to a strong random secret
 - ✅ Generate strong RSA keys (automatically done via postinstall)
-- ✅ Configure ALLOWED_ORIGINS for CORS
+- ✅ Configure ALLOWED_ORIGINS for CORS with your frontend URLs
 - ✅ Use TLS/HTTPS for all endpoints
+- ✅ Run database migrations in production
+- ✅ Seed default scopes
 - ✅ Regularly rotate client secrets
 - ✅ Monitor and audit security logs
+
+> **📘 Deployment Guide**: See **[RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)** for complete deployment instructions with Render.
 
 ## 🧪 Testing
 
