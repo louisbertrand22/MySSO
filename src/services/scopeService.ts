@@ -154,7 +154,7 @@ export class ScopeService {
    * @returns Array of default scope names
    */
   static getDefaultScopes(): string[] {
-    return ['openid', 'profile', 'email'];
+    return ['openid', 'profile', 'email', 'username'];
   }
 
   /**

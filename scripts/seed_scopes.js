@@ -22,6 +22,10 @@ const DEFAULT_SCOPES = [
     description: 'Access email address',
   },
   {
+    name: 'username',
+    description: 'Access username',
+  },
+  {
     name: 'admin',
     description: 'Access administrative functions and endpoints',
   },
