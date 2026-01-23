@@ -4,6 +4,8 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
 
 > **📖 For Client Developers**: If you're looking to integrate your application with MySSO, see the **[Client Integration Guide](CLIENT_INTEGRATION_GUIDE.md)** for complete step-by-step instructions, code examples, and best practices.
 
+> **☁️ Deploying to Production?**: See the **[Supabase Migration Guide](SUPABASE_MIGRATION.md)** for instructions on using Supabase as your managed PostgreSQL database.
+
 ## 🚀 Features
 
 - **Full OpenID Connect Support** - Complete OIDC implementation with discovery, JWKS, ID tokens
@@ -22,7 +24,7 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
 ## 📋 Prerequisites
 
 - Node.js 18+ 
-- PostgreSQL database
+- PostgreSQL database (local via Docker) OR Supabase account (recommended for production)
 - npm or yarn
 
 ## 🛠️ Installation
@@ -43,16 +45,36 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` and configure your database connection. For local development with Docker:
+   
+   **Option A: Using Supabase (Recommended for Production)**
+   
+   1. Create a free account at [supabase.com](https://supabase.com)
+   2. Create a new project in your Supabase dashboard
+   3. Navigate to Project Settings > Database
+   4. Copy your connection string (Use "Connection pooling" URI for better performance)
+   5. Update your `.env` file with the Supabase connection string:
+      ```
+      DATABASE_URL="postgresql://postgres.[YOUR-PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true"
+      ```
+   
+   **Option B: Using Local PostgreSQL with Docker**
+   
+   Edit `.env` and use the local database configuration:
    ```
    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mysso?schema=public"
    ```
 
 4. **Start the database**
+   
+   **If using local PostgreSQL with Docker:**
    ```bash
    docker compose up -d
    ```
    This will start a PostgreSQL database on port 5432.
+   
+   **If using Supabase:**
+   
+   Skip this step - your database is already running in the cloud!
 
 5. **Setup database schema**
    ```bash
@@ -268,6 +290,7 @@ curl http://localhost:3000/.well-known/openid-configuration
 - `npm run prisma:generate` - Generate Prisma client
 - `npm run prisma:migrate` - Run database migrations
 - `npm run prisma:studio` - Open Prisma Studio
+- `npm run test:supabase` - Test Supabase connection string compatibility
 - `scripts/testOAuth2Flow.sh` - Test OAuth2 authorization code flow
 
 ## 🔐 Scope-Based Access Control

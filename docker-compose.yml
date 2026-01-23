@@ -1,5 +1,9 @@
 version: '3.9'
 
+# This docker-compose file provides a local PostgreSQL database for development.
+# For production deployments, consider using Supabase instead.
+# See SUPABASE_MIGRATION.md for setup instructions.
+
 services:
   db:
     image: postgres:16
