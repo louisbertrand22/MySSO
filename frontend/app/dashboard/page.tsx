@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ConsentsManager from '@/components/ConsentsManager';
 import { ApiService } from '@/lib/api';
+import { validateUsername } from '@/lib/validation';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -41,13 +42,9 @@ export default function DashboardPage() {
     if (!accessToken) return;
     
     // Validate username
-    if (!newUsername || newUsername.length < 3 || newUsername.length > 20) {
-      setUsernameError('Username must be between 3 and 20 characters');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
-      setUsernameError('Username can only contain letters, numbers, underscores, and hyphens');
+    const validation = validateUsername(newUsername);
+    if (!validation.isValid) {
+      setUsernameError(validation.error || 'Invalid username');
       return;
     }
 

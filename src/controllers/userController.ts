@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { ConsentService } from '../services/consentService';
 import { SecurityLogger } from '../services/securityLogger';
+import { AuthService } from '../services/authService';
+import { validateUsername, USERNAME_ERROR_MESSAGES } from '../utils/validation';
 
 /**
  * User Controller
@@ -126,25 +128,17 @@ export class UserController {
       const userId = req.user.sub;
       const { username } = req.body;
 
-      if (!username || typeof username !== 'string') {
+      // Validate username format
+      const validation = validateUsername(username);
+      if (!validation.isValid) {
         res.status(400).json({
           error: 'invalid_request',
-          error_description: 'Username is required and must be a string',
+          error_description: validation.error,
         });
         return;
       }
 
-      // Validate username format (alphanumeric, underscore, hyphen, 3-20 characters)
-      const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
-      if (!usernameRegex.test(username)) {
-        res.status(400).json({
-          error: 'invalid_request',
-          error_description: 'Username must be 3-20 characters long and contain only letters, numbers, underscores, and hyphens',
-        });
-        return;
-      }
-
-      const prisma = ConsentService.getPrisma();
+      const prisma = AuthService.getPrisma();
       
       // Check if username is already taken
       const existingUser = await prisma.user.findUnique({
@@ -154,7 +148,7 @@ export class UserController {
       if (existingUser && existingUser.id !== userId) {
         res.status(400).json({
           error: 'username_taken',
-          error_description: 'Username is already taken',
+          error_description: USERNAME_ERROR_MESSAGES.TAKEN,
         });
         return;
       }
