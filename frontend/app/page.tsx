@@ -20,7 +20,7 @@ export default function Home() {
       <div className="flex-1 flex items-center justify-center bg-gray-900">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
-          <p className="mt-4 text-gray-300">Loading...</p>
+          <p className="mt-4 text-gray-300">Chargement...</p>
         </div>
       </div>
     );
@@ -44,14 +44,14 @@ export default function Home() {
               href="/login"
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              Sign In
+              Se connecter
             </Link>
             
             <Link
               href="/register"
               className="w-full flex justify-center py-3 px-4 border border-indigo-600 rounded-md shadow-sm text-sm font-medium text-indigo-400 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              Create Account
+              Créer un compte
             </Link>
           </div>
 
