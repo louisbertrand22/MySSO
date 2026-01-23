@@ -30,6 +30,12 @@ export default function Home() {
     <div className="flex-1 flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 text-center">
         <div>
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Bienvenue !
+          </h2>
+          <p className="text-base text-gray-300 mb-8">
+            MySSO est un système d'authentification unique (SSO) qui vous permet de vous connecter de manière centralisée à toutes mes applications. Une seule connexion pour accéder à tous vos services préférés en toute sécurité.
+          </p>
           <h1 className="text-4xl font-extrabold text-white mb-2">
             MySSO
           </h1>
