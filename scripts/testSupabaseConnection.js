@@ -41,7 +41,11 @@ testConnectionStrings.forEach((test) => {
     
     if (isValid === test.expected) {
       console.log(`✅ ${test.name}`);
-      console.log(`   URL: ${test.url.substring(0, 50)}...`);
+      // Truncate URL intelligently - show protocol, host (partially), and important params
+      const displayUrl = test.url.length > 70 
+        ? `${test.url.substring(0, 40)}...${test.url.substring(test.url.length - 27)}`
+        : test.url;
+      console.log(`   ${displayUrl}`);
     } else {
       console.log(`❌ ${test.name}`);
       console.log(`   URL: ${test.url}`);

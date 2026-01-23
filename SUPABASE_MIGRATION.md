@@ -76,8 +76,11 @@ This will create all necessary tables (User, Session, RefreshToken, AuthCode, Cl
 Run the seed script to create default OAuth2/OIDC scopes:
 
 ```bash
+# Run the seed script directly with Node.js
 node scripts/seed_scopes.js
 ```
+
+This creates the default scopes needed for OAuth2/OIDC functionality.
 
 ## Step 6: Verify the Migration
 
@@ -111,6 +114,7 @@ If you have existing data in a local PostgreSQL database that you want to migrat
 
 1. **Export your local database:**
    ```bash
+   # Adjust the -h, -U, and -d parameters to match your local PostgreSQL setup
    pg_dump -h localhost -U postgres -d mysso --data-only > data_backup.sql
    ```
 
@@ -236,7 +240,7 @@ For most MySSO deployments, the **free tier is sufficient** to get started.
 - **Supabase Documentation**: https://supabase.com/docs
 - **Supabase Discord**: https://discord.supabase.com
 - **Prisma Documentation**: https://www.prisma.io/docs
-- **MySSO Issues**: https://github.com/yourusername/MySSO/issues
+- **MySSO Issues**: Create an issue in the GitHub repository
 
 ## Reverting to Local PostgreSQL
 
