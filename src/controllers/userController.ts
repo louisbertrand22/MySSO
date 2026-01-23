@@ -107,4 +107,75 @@ export class UserController {
       });
     }
   }
+
+  /**
+   * PATCH /user/profile
+   * Update user profile (username)
+   */
+  static async updateProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      // User must be authenticated (via middleware)
+      if (!req.user) {
+        res.status(401).json({
+          error: 'unauthorized',
+          error_description: 'User must be authenticated',
+        });
+        return;
+      }
+
+      const userId = req.user.sub;
+      const { username } = req.body;
+
+      if (!username || typeof username !== 'string') {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Username is required and must be a string',
+        });
+        return;
+      }
+
+      // Validate username format (alphanumeric, underscore, hyphen, 3-20 characters)
+      const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+      if (!usernameRegex.test(username)) {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'Username must be 3-20 characters long and contain only letters, numbers, underscores, and hyphens',
+        });
+        return;
+      }
+
+      const prisma = ConsentService.getPrisma();
+      
+      // Check if username is already taken
+      const existingUser = await prisma.user.findUnique({
+        where: { username },
+      });
+
+      if (existingUser && existingUser.id !== userId) {
+        res.status(400).json({
+          error: 'username_taken',
+          error_description: 'Username is already taken',
+        });
+        return;
+      }
+
+      // Update user profile
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { username },
+        select: { id: true, email: true, username: true, createdAt: true },
+      });
+
+      res.json({
+        message: 'Profile updated successfully',
+        user: updatedUser,
+      });
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to update profile',
+      });
+    }
+  }
 }

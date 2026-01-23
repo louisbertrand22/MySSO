@@ -62,7 +62,7 @@ export class AuthService {
     // Fetch user to get createdAt timestamp
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { createdAt: true, email: true }
+      select: { createdAt: true, email: true, username: true }
     })
 
     if (!user) {
@@ -75,6 +75,11 @@ export class AuthService {
       email: email || user.email,
       createdAt: user.createdAt.toISOString()
     };
+
+    // Include username if present
+    if (user.username) {
+      accessTokenPayload.username = user.username;
+    }
 
     // Include scopes if provided
     if (scopes && scopes.length > 0) {

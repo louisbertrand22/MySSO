@@ -1,13 +1,18 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ConsentsManager from '@/components/ConsentsManager';
+import { ApiService } from '@/lib/api';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, accessToken, isLoading, logout } = useAuth();
+  const { user, accessToken, isLoading, logout, refreshAccessToken } = useAuth();
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameSaving, setUsernameSaving] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -18,6 +23,52 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     await logout();
     router.push('/login');
+  };
+
+  const handleEditUsername = () => {
+    setNewUsername(user?.username || '');
+    setEditingUsername(true);
+    setUsernameError('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingUsername(false);
+    setNewUsername('');
+    setUsernameError('');
+  };
+
+  const handleSaveUsername = async () => {
+    if (!accessToken) return;
+    
+    // Validate username
+    if (!newUsername || newUsername.length < 3 || newUsername.length > 20) {
+      setUsernameError('Username must be between 3 and 20 characters');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
+      setUsernameError('Username can only contain letters, numbers, underscores, and hyphens');
+      return;
+    }
+
+    setUsernameSaving(true);
+    setUsernameError('');
+
+    try {
+      await ApiService.updateProfile(accessToken, newUsername);
+      // Refresh the access token to get the updated username
+      await refreshAccessToken();
+      setEditingUsername(false);
+      setNewUsername('');
+    } catch (error) {
+      if (error instanceof Error) {
+        setUsernameError(error.message);
+      } else {
+        setUsernameError('Failed to update username');
+      }
+    } finally {
+      setUsernameSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -81,6 +132,54 @@ export default function DashboardPage() {
                   </dd>
                 </div>
                 <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Username</dt>
+                  <dd className="mt-1 text-sm sm:mt-0 sm:col-span-2">
+                    {editingUsername ? (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Enter username"
+                            disabled={usernameSaving}
+                          />
+                          <button
+                            onClick={handleSaveUsername}
+                            disabled={usernameSaving}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                          >
+                            {usernameSaving ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            disabled={usernameSaving}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {usernameError && (
+                          <p className="text-sm text-red-600">{usernameError}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-900">
+                          {user.username || 'Not set'}
+                        </span>
+                        <button
+                          onClick={handleEditUsername}
+                          className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                        >
+                          {user.username ? 'Edit' : 'Set username'}
+                        </button>
+                      </div>
+                    )}
+                  </dd>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Account created</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                     {new Date(user.createdAt).toLocaleString()}

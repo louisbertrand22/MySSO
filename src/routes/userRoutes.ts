@@ -15,4 +15,7 @@ router.get('/user/consents', authMiddleware, UserController.getConsents);
 // Revoke consent for a specific client
 router.delete('/user/consents/:clientId', authMiddleware, UserController.revokeConsent);
 
+// Update user profile
+router.patch('/user/profile', authMiddleware, UserController.updateProfile);
+
 export default router;
