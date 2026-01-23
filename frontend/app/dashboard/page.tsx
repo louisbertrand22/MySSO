@@ -70,10 +70,10 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 shadow-lg"></div>
+          <p className="mt-6 text-gray-700 font-semibold text-lg">Loading your dashboard...</p>
         </div>
       </div>
     );
@@ -84,17 +84,24 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50">
-      <nav className="bg-white shadow">
+    <div className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      <nav className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">MySSO Dashboard</h1>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">MySSO Dashboard</h1>
+              </div>
             </div>
             <div className="flex items-center">
               <button
                 onClick={handleLogout}
-                className="ml-4 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="ml-4 px-6 py-2.5 border border-transparent rounded-xl shadow-lg text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 hover:shadow-xl hover:scale-105"
               >
                 Logout
               </button>
@@ -103,34 +110,63 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-            <div className="px-4 py-5 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                User Information
-              </h3>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Your account details
-              </p>
+      <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8 w-full">
+        <div className="px-4 py-6 sm:px-0 space-y-6">
+          {/* User Information Card */}
+          <div className="bg-white/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-white/20 hover:shadow-2xl transition-all duration-300">
+            <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-b border-gray-200/50">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl leading-6 font-bold text-gray-900">
+                    User Information
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Your account details
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="border-t border-gray-200">
-              <dl>
-                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">User ID</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+            <div className="divide-y divide-gray-200/50">
+              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50/50 transition-colors duration-200">
+                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+                  <dt className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                    </svg>
+                    User ID
+                  </dt>
+                  <dd className="mt-2 text-sm text-gray-900 sm:mt-0 sm:col-span-2 font-mono bg-gray-100/70 px-3 py-2 rounded-lg">
                     {user.id}
                   </dd>
                 </div>
-                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Email address</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+              </div>
+              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50/50 transition-colors duration-200">
+                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+                  <dt className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Email address
+                  </dt>
+                  <dd className="mt-2 text-sm text-gray-900 sm:mt-0 sm:col-span-2 font-medium">
                     {user.email}
                   </dd>
                 </div>
-                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Username</dt>
-                  <dd className="mt-1 text-sm sm:mt-0 sm:col-span-2">
+              </div>
+              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50/50 transition-colors duration-200">
+                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+                  <dt className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Username
+                  </dt>
+                  <dd className="mt-2 text-sm sm:mt-0 sm:col-span-2">
                     {editingUsername ? (
                       <div className="space-y-2">
                         <div className="flex gap-2">
@@ -138,86 +174,126 @@ export default function DashboardPage() {
                             type="text"
                             value={newUsername}
                             onChange={(e) => setNewUsername(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             placeholder="Enter username"
                             disabled={usernameSaving}
                           />
                           <button
                             onClick={handleSaveUsername}
                             disabled={usernameSaving}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed font-semibold shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
                           >
                             {usernameSaving ? 'Saving...' : 'Save'}
                           </button>
                           <button
                             onClick={handleCancelEdit}
                             disabled={usernameSaving}
-                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed font-semibold shadow transition-all duration-200"
                           >
                             Cancel
                           </button>
                         </div>
                         {usernameError && (
-                          <p className="text-sm text-red-600">{usernameError}</p>
+                          <p className="text-sm text-red-600 flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            {usernameError}
+                          </p>
                         )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-900">
+                      <div className="flex items-center gap-3">
+                        <span className="text-gray-900 font-medium">
                           {user.username || 'Not set'}
                         </span>
                         <button
                           onClick={handleEditUsername}
-                          className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                          className="text-indigo-600 hover:text-indigo-800 text-sm font-semibold flex items-center gap-1 hover:gap-2 transition-all duration-200"
                         >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
                           {user.username ? 'Edit' : 'Set username'}
                         </button>
                       </div>
                     )}
                   </dd>
                 </div>
-                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Account created</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+              </div>
+              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50/50 transition-colors duration-200">
+                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+                  <dt className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Account created
+                  </dt>
+                  <dd className="mt-2 text-sm text-gray-900 sm:mt-0 sm:col-span-2 font-medium">
                     {new Date(user.createdAt).toLocaleString()}
                   </dd>
-                </div>
-              </dl>
-            </div>
-          </div>
-
-          <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-            <div className="px-4 py-5 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Session Information
-              </h3>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Your current session status
-              </p>
-            </div>
-            <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="h-3 w-3 rounded-full bg-green-400"></div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">Active Session</p>
-                  <p className="text-sm text-gray-500">You are currently logged in</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-            <div className="px-4 py-5 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Authorized Applications
-              </h3>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Manage third-party applications that have access to your account
-              </p>
+          {/* Session Information Card */}
+          <div className="bg-white/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-white/20 hover:shadow-2xl transition-all duration-300">
+            <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-b border-gray-200/50">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl leading-6 font-bold text-gray-900">
+                    Session Information
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Your current session status
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+            <div className="px-6 py-6 sm:px-8">
+              <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                <div className="flex-shrink-0">
+                  <div className="h-4 w-4 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50"></div>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Active Session
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">You are currently logged in</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Authorized Applications Card */}
+          <div className="bg-white/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-white/20 hover:shadow-2xl transition-all duration-300">
+            <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b border-gray-200/50">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl leading-6 font-bold text-gray-900">
+                    Authorized Applications
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Manage third-party applications that have access to your account
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-5 sm:px-8">
               {accessToken ? (
                 <ConsentsManager accessToken={accessToken} />
               ) : (
