@@ -868,6 +868,7 @@ export class AuthController {
         select: {
           id: true,
           email: true,
+          username: true,
           createdAt: true,
         },
       });
@@ -896,6 +897,10 @@ export class AuthController {
         // For now, we'll add basic info
         userInfo.name = user.email.split('@')[0]; // Simple name derivation
         userInfo.updated_at = Math.floor(user.createdAt.getTime() / 1000);
+        // Add username if available
+        if (user.username) {
+          userInfo.preferred_username = user.username;
+        }
       }
 
       // Add email claims if 'email' scope is granted

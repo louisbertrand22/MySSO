@@ -92,13 +92,15 @@ export class JwtService {
    * @param email - User email
    * @param nonce - Optional nonce from authorization request
    * @param audience - Client ID (aud claim)
+   * @param username - Optional username (preferred_username claim)
    * @returns Signed ID token
    */
   static generateIdToken(
     userId: string,
     email: string,
     nonce?: string,
-    audience?: string
+    audience?: string,
+    username?: string
   ): string {
     const now = Math.floor(Date.now() / 1000);
     
@@ -109,6 +111,11 @@ export class JwtService {
       iat: now,
       auth_time: now,
     };
+
+    // Add username if provided
+    if (username) {
+      payload.preferred_username = username;
+    }
 
     // Add nonce if provided (for replay attack prevention)
     if (nonce) {
