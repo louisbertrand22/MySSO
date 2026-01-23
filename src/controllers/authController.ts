@@ -337,7 +337,7 @@ export class AuthController {
       id_token_signing_alg_values_supported: ['RS256'],
       scopes_supported: ['openid', 'profile', 'email'],
       token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post', 'none'],
-      claims_supported: ['sub', 'name', 'email', 'email_verified', 'updated_at', 'iat', 'auth_time', 'nonce'],
+      claims_supported: ['sub', 'name', 'email', 'email_verified', 'preferred_username', 'updated_at', 'iat', 'auth_time', 'nonce'],
       code_challenge_methods_supported: ['plain', 'S256'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
     };
