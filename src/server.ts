@@ -114,12 +114,11 @@ app.use((err: Error, _req: Request, res: Response, _next: any) => {
 // Start server
 const PORT = config.port;
 app.listen(PORT, () => {
-  const baseUrl = config.baseUrl;
   console.log(`🚀 MySSO server running on port ${PORT}`);
-  console.log(`📍 Health check: ${baseUrl}/health`);
-  console.log(`📍 OpenID Configuration: ${baseUrl}/.well-known/openid-configuration`);
-  console.log(`📍 JWKS: ${baseUrl}/jwks.json`);
-  console.log(`🧪 Test JWT: ${baseUrl}/test/jwt`);
+  console.log(`📍 Health check: ${config.baseUrl}/health`);
+  console.log(`📍 OpenID Configuration: ${config.baseUrl}/.well-known/openid-configuration`);
+  console.log(`📍 JWKS: ${config.baseUrl}/jwks.json`);
+  console.log(`🧪 Test JWT: ${config.baseUrl}/test/jwt`);
 });
 
 export default app;
