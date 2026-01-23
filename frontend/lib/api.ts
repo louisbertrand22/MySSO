@@ -22,6 +22,7 @@ export class ApiService {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(credentials),
     });
 
@@ -42,6 +43,7 @@ export class ApiService {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(credentials),
     });
 
@@ -62,6 +64,7 @@ export class ApiService {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({ refreshToken }),
     });
 
@@ -82,6 +85,7 @@ export class ApiService {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({ refreshToken }),
     });
 
@@ -128,6 +132,7 @@ export class ApiService {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -148,6 +153,7 @@ export class ApiService {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -166,6 +172,7 @@ export class ApiService {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({ username }),
     });
 

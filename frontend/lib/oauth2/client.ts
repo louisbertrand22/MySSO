@@ -53,6 +53,7 @@ export async function exchangeCodeForTokens(
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
     body: JSON.stringify({
       grant_type: 'authorization_code',
       code: code,
