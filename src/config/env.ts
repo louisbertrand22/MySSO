@@ -12,13 +12,14 @@ export const config = {
   // Server configuration
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
+  baseUrl: process.env.BASE_URL || 'http://localhost:3000',
   
   // Database configuration
   databaseUrl: process.env.DATABASE_URL || '',
   
   // JWT configuration
   jwt: {
-    issuer: process.env.JWT_ISSUER || 'http://localhost:3000',
+    issuer: process.env.JWT_ISSUER || process.env.BASE_URL || 'http://localhost:3000',
     expiration: parseInt(process.env.JWT_EXPIRATION || '3600', 10),
     secret: process.env.JWT_SECRET || 'changeme',
   },

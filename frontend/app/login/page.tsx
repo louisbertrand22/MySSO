@@ -24,8 +24,8 @@ function LoginContent() {
         // 1. Décoder le paramètre pour obtenir le chemin (ex: /authorize?...)
         const decodedPath = decodeURIComponent(returnTo);
         
-        // 2. Construire une URL absolue propre vers le BACKEND (3000)
-        const baseUrl = "http://localhost:3000";
+        // 2. Construire une URL absolue propre vers le BACKEND
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
         const fullUrl = new URL(decodedPath, baseUrl).toString();
 
         console.log("Redirection forcée vers :", fullUrl);
