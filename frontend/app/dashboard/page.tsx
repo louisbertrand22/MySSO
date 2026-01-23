@@ -230,7 +230,7 @@ export default function DashboardPage() {
                     Compte créé le
                   </dt>
                   <dd className="mt-2 text-sm text-gray-200 sm:mt-0 sm:col-span-2 font-medium">
-                    {new Date(user.createdAt).toLocaleString()}
+                    {new Date(user.createdAt).toLocaleString('fr-FR')}
                   </dd>
                 </div>
               </div>
