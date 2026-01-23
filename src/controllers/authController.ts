@@ -38,7 +38,7 @@ export class AuthController {
       const passwordHash = await AuthService.hashPassword(password);
       const user = await prisma.user.create({ 
         data: { email, passwordHash },
-        select: { id: true, email: true, createdAt: true }
+        select: { id: true, email: true, username: true, createdAt: true }
       });
 
       res.json({ user });
@@ -99,6 +99,7 @@ export class AuthController {
         user: {
           id: user.id,
           email: user.email,
+          username: user.username,
           createdAt: user.createdAt
         }
       });

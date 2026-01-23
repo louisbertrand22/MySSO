@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { ConsentService } from '../services/consentService';
 import { SecurityLogger } from '../services/securityLogger';
+import { AuthService } from '../services/authService';
+import { validateUsername, USERNAME_ERROR_MESSAGES } from '../utils/validation';
 
 /**
  * User Controller
@@ -104,6 +106,69 @@ export class UserController {
       res.status(500).json({
         error: 'server_error',
         error_description: 'Failed to revoke consent',
+      });
+    }
+  }
+
+  /**
+   * PATCH /user/profile
+   * Update user profile (username)
+   */
+  static async updateProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      // User must be authenticated (via middleware)
+      if (!req.user) {
+        res.status(401).json({
+          error: 'unauthorized',
+          error_description: 'User must be authenticated',
+        });
+        return;
+      }
+
+      const userId = req.user.sub;
+      const { username } = req.body;
+
+      // Validate username format
+      const validation = validateUsername(username);
+      if (!validation.isValid) {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: validation.error,
+        });
+        return;
+      }
+
+      const prisma = AuthService.getPrisma();
+      
+      // Check if username is already taken
+      const existingUser = await prisma.user.findUnique({
+        where: { username },
+      });
+
+      if (existingUser && existingUser.id !== userId) {
+        res.status(400).json({
+          error: 'username_taken',
+          error_description: USERNAME_ERROR_MESSAGES.TAKEN,
+        });
+        return;
+      }
+
+      // Update user profile
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { username },
+        select: { id: true, email: true, username: true, createdAt: true },
+      });
+
+      res.json({
+        message: 'Profile updated successfully',
+        user: updatedUser,
+      });
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to update profile',
       });
     }
   }
