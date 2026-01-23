@@ -21,7 +21,7 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
       const data = await ApiService.getConsents(accessToken);
       setConsents(data.consents);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load consents');
+      setError(err instanceof Error ? err.message : 'Échec du chargement des consentements');
       console.error('Error loading consents:', err);
     } finally {
       setIsLoading(false);
@@ -33,7 +33,7 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
   }, [accessToken]);
 
   const handleRevoke = async (clientId: string) => {
-    if (!confirm('Are you sure you want to revoke access for this application? You will need to authorize it again to use it.')) {
+    if (!confirm('Êtes-vous sûr de vouloir révoquer l\'accès pour cette application ? Vous devrez l\'autoriser à nouveau pour l\'utiliser.')) {
       return;
     }
 
@@ -45,9 +45,9 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
       setConsents(consents.filter(c => c.clientId !== clientId));
       
       // Show success message
-      alert('Consent revoked successfully');
+      alert('Consentement révoqué avec succès');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to revoke consent');
+      setError(err instanceof Error ? err.message : 'Échec de la révocation du consentement');
       console.error('Error revoking consent:', err);
     } finally {
       setRevoking(null);
@@ -57,7 +57,7 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-200 border-t-indigo-600"></div>
+        <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-400 border-t-indigo-600"></div>
       </div>
     );
   }
@@ -65,8 +65,8 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
   return (
     <div>
       {error && (
-        <div className="mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 px-5 py-4 rounded-xl shadow-lg flex items-center gap-3">
-          <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <div className="mb-4 bg-red-900/30 border-l-4 border-red-500 text-red-300 px-5 py-4 rounded-xl shadow-lg flex items-center gap-3">
+          <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
           <span className="font-medium">{error}</span>
@@ -75,7 +75,7 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
 
       {consents.length === 0 ? (
         <div className="text-center py-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-700 to-gray-800 mb-4">
             <svg
               className="w-8 h-8 text-gray-400"
               fill="none"
@@ -91,15 +91,15 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
               />
             </svg>
           </div>
-          <h3 className="text-lg font-bold text-gray-900">No authorized applications</h3>
-          <p className="mt-2 text-sm text-gray-600 max-w-sm mx-auto">
-            You haven't authorized any third-party applications yet. When you do, they'll appear here.
+          <h3 className="text-lg font-bold text-gray-200">Aucune application autorisée</h3>
+          <p className="mt-2 text-sm text-gray-400 max-w-sm mx-auto">
+            Vous n'avez pas encore autorisé d'applications tierces. Lorsque vous le ferez, elles apparaîtront ici.
           </p>
         </div>
       ) : (
         <div className="space-y-4">
           {consents.map((consent) => (
-            <div key={consent.id} className="p-5 bg-gradient-to-r from-gray-50 to-gray-100/50 rounded-xl border border-gray-200 hover:shadow-lg transition-all duration-200 hover:border-indigo-300">
+            <div key={consent.id} className="p-5 bg-gradient-to-r from-gray-700/50 to-gray-800/50 rounded-xl border border-gray-600 hover:shadow-lg transition-all duration-200 hover:border-indigo-500">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
@@ -109,10 +109,10 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
                       </svg>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-base font-bold text-gray-900 truncate">
+                      <p className="text-base font-bold text-gray-100 truncate">
                         {consent.clientName}
                       </p>
-                      <p className="text-xs text-gray-500 font-mono mt-0.5">
+                      <p className="text-xs text-gray-400 font-mono mt-0.5">
                         {consent.clientId}
                       </p>
                     </div>
@@ -121,36 +121,36 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
                     {consent.scopes.map((scope) => (
                       <span
                         key={scope}
-                        className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border border-indigo-200"
+                        className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-900/50 to-purple-900/50 text-indigo-300 border border-indigo-700"
                       >
                         {scope}
                       </span>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span>Authorized on {new Date(consent.createdAt).toLocaleDateString()}</span>
+                    <span>Autorisé le {new Date(consent.createdAt).toLocaleDateString('fr-FR')}</span>
                   </div>
                 </div>
                 <div className="flex-shrink-0">
                   <button
                     onClick={() => handleRevoke(consent.clientId)}
                     disabled={revoking === consent.clientId}
-                    className="inline-flex items-center px-4 py-2.5 border-2 border-red-300 text-sm font-semibold rounded-xl text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
+                    className="inline-flex items-center px-4 py-2.5 border-2 border-red-600 text-sm font-semibold rounded-xl text-red-300 bg-red-900/30 hover:bg-red-900/50 hover:border-red-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
                   >
                     {revoking === consent.clientId ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-200 border-t-red-700 mr-2"></div>
-                        Revoking...
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-400 border-t-red-700 mr-2"></div>
+                        Révocation...
                       </>
                     ) : (
                       <>
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                        Revoke Access
+                        Révoquer l'accès
                       </>
                     )}
                   </button>
