@@ -337,7 +337,7 @@ export class AuthController {
       id_token_signing_alg_values_supported: ['RS256'],
       scopes_supported: ['openid', 'profile', 'email'],
       token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post', 'none'],
-      claims_supported: ['sub', 'name', 'email', 'email_verified', 'updated_at', 'iat', 'auth_time', 'nonce'],
+      claims_supported: ['sub', 'name', 'email', 'email_verified', 'preferred_username', 'updated_at', 'iat', 'auth_time', 'nonce'],
       code_challenge_methods_supported: ['plain', 'S256'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
     };
@@ -767,7 +767,7 @@ export class AuthController {
         const prisma = AuthService.getPrisma();
         const user = await prisma.user.findUnique({
           where: { id: userId },
-          select: { id: true, email: true },
+          select: { id: true, email: true, username: true },
         });
 
         if (!user) {
@@ -801,7 +801,8 @@ export class AuthController {
             user.id,
             user.email,
             nonce || undefined,
-            clientId || undefined
+            clientId || undefined,
+            user.username || undefined
           );
         }
 
@@ -868,6 +869,7 @@ export class AuthController {
         select: {
           id: true,
           email: true,
+          username: true,
           createdAt: true,
         },
       });
@@ -896,6 +898,10 @@ export class AuthController {
         // For now, we'll add basic info
         userInfo.name = user.email.split('@')[0]; // Simple name derivation
         userInfo.updated_at = Math.floor(user.createdAt.getTime() / 1000);
+        // Add username if available
+        if (user.username) {
+          userInfo.preferred_username = user.username;
+        }
       }
 
       // Add email claims if 'email' scope is granted

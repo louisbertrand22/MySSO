@@ -17,7 +17,7 @@ The scope management system provides fine-grained access control for OAuth2 clie
 ### Default OAuth2/OIDC Scopes
 
 - **openid** - Authenticate user and get basic profile information
-- **profile** - Access basic profile information (name, picture, etc.)
+- **profile** - Access basic profile information (name, username, picture, etc.)
 - **email** - Access email address
 
 ### Administrative Scopes
