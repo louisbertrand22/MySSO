@@ -81,17 +81,23 @@ node scripts/seed_scopes.js
 
 ## Step 6: Verify the Migration
 
-1. **Check via Supabase Dashboard:**
+1. **Test connection string format:**
+   ```bash
+   npm run test:supabase
+   ```
+   This validates that various Supabase connection string formats are compatible
+
+2. **Check via Supabase Dashboard:**
    - Go to the **Table Editor** in your Supabase dashboard
    - You should see all 7 tables: User, Session, RefreshToken, AuthCode, Client, UserConsent, Scope
 
-2. **Check via Prisma Studio:**
+3. **Check via Prisma Studio:**
    ```bash
    npm run prisma:studio
    ```
    This will open a web interface where you can view and manage your data
 
-3. **Test the application:**
+4. **Test the application:**
    ```bash
    npm run dev
    ```

@@ -290,6 +290,7 @@ curl http://localhost:3000/.well-known/openid-configuration
 - `npm run prisma:generate` - Generate Prisma client
 - `npm run prisma:migrate` - Run database migrations
 - `npm run prisma:studio` - Open Prisma Studio
+- `npm run test:supabase` - Test Supabase connection string compatibility
 - `scripts/testOAuth2Flow.sh` - Test OAuth2 authorization code flow
 
 ## 🔐 Scope-Based Access Control
