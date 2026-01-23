@@ -29,6 +29,7 @@ export const config = {
   
   // Keys directory
   keysDir: process.env.KEYS_DIR || path.join(process.cwd(), 'keys'),
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3002',
 } as const;
 
 /**

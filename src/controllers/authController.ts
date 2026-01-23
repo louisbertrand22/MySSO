@@ -387,7 +387,7 @@ export class AuthController {
 
       // 3. SI PAS DE TOKEN : Redirection vers le Login
       if (!token) {
-        const loginUrl = `http://localhost:3002/login?returnTo=${encodeURIComponent(req.originalUrl)}`;
+        const loginUrl = `${config.frontendUrl}/login?returnTo=${encodeURIComponent(req.originalUrl)}`;
         res.redirect(loginUrl);
         return;
       }
@@ -467,7 +467,7 @@ export class AuthController {
       }
 
       // Redirection vers l'écran de consentement
-      const consentUrl = new URL(`http://localhost:3002/consent`);
+      const consentUrl = new URL(`${config.frontendUrl}/consent`);
       consentUrl.searchParams.set('client_id', clientId);
       consentUrl.searchParams.set('redirect_uri', redirect_uri);
       if (state) consentUrl.searchParams.set('state', state as string);
