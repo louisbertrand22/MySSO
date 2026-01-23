@@ -42,4 +42,37 @@ export function validateConfig(): void {
     console.warn(`Warning: Missing environment variables: ${missing.join(', ')}`);
     console.warn('Please copy .env.example to .env and configure the values');
   }
+
+  // Additional production checks
+  if (config.nodeEnv === 'production') {
+    const productionIssues: string[] = [];
+
+    // Check BASE_URL is set for production
+    if (!process.env.BASE_URL) {
+      productionIssues.push('BASE_URL should be explicitly set in production (currently using default)');
+    }
+
+    // Check BASE_URL uses HTTPS in production
+    if (config.baseUrl.startsWith('http://') && !config.baseUrl.includes('localhost')) {
+      productionIssues.push('BASE_URL should use HTTPS in production for security');
+    }
+
+    // Check JWT_SECRET is not default
+    if (config.jwt.secret === 'changeme') {
+      productionIssues.push('JWT_SECRET is using default value - please set a strong secret');
+    }
+
+    // Check ALLOWED_ORIGINS is configured
+    if (!process.env.ALLOWED_ORIGINS) {
+      productionIssues.push('ALLOWED_ORIGINS should be set in production to restrict CORS');
+    }
+
+    if (productionIssues.length > 0) {
+      console.warn('⚠️  Production Configuration Issues:');
+      productionIssues.forEach(issue => console.warn(`   - ${issue}`));
+      console.warn('');
+    } else {
+      console.log('✅ Production configuration validated successfully');
+    }
+  }
 }
