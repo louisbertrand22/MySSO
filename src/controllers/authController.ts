@@ -767,7 +767,7 @@ export class AuthController {
         const prisma = AuthService.getPrisma();
         const user = await prisma.user.findUnique({
           where: { id: userId },
-          select: { id: true, email: true },
+          select: { id: true, email: true, username: true },
         });
 
         if (!user) {
@@ -801,7 +801,8 @@ export class AuthController {
             user.id,
             user.email,
             nonce || undefined,
-            clientId || undefined
+            clientId || undefined,
+            user.username || undefined
           );
         }
 
