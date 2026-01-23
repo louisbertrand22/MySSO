@@ -115,10 +115,10 @@ app.use((err: Error, _req: Request, res: Response, _next: any) => {
 const PORT = config.port;
 app.listen(PORT, () => {
   console.log(`🚀 MySSO server running on port ${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/health`);
-  console.log(`📍 OpenID Configuration: http://localhost:${PORT}/.well-known/openid-configuration`);
-  console.log(`📍 JWKS: http://localhost:${PORT}/jwks.json`);
-  console.log(`🧪 Test JWT: http://localhost:${PORT}/test/jwt`);
+  console.log(`📍 Health check: ${config.baseUrl}/health`);
+  console.log(`📍 OpenID Configuration: ${config.baseUrl}/.well-known/openid-configuration`);
+  console.log(`📍 JWKS: ${config.baseUrl}/jwks.json`);
+  console.log(`🧪 Test JWT: ${config.baseUrl}/test/jwt`);
 });
 
 export default app;

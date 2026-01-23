@@ -4,6 +4,9 @@ import path from 'path';
 // Load environment variables
 dotenv.config();
 
+// Base URL configuration - used by other config properties
+const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
 /**
  * Environment configuration
  * Centralizes all environment variable access with type safety and defaults
@@ -12,13 +15,14 @@ export const config = {
   // Server configuration
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
+  baseUrl,
   
   // Database configuration
   databaseUrl: process.env.DATABASE_URL || '',
   
   // JWT configuration
   jwt: {
-    issuer: process.env.JWT_ISSUER || 'http://localhost:3000',
+    issuer: process.env.JWT_ISSUER || baseUrl,
     expiration: parseInt(process.env.JWT_EXPIRATION || '3600', 10),
     secret: process.env.JWT_SECRET || 'changeme',
   },
