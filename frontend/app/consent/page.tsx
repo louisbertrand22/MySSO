@@ -126,7 +126,7 @@ function ConsentContent() {
           </button>
           <button 
             onClick={handleDeny}
-            className="bg-gray-200 px-6 py-2 rounded hover:bg-gray-300 transition-colors"
+            className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500 transition-colors"
           >
             Refuser
           </button>
