@@ -31,6 +31,11 @@ console.log("🧪 Testing Supabase Connection String Compatibility\n");
 
 let allPassed = true;
 
+// URL display configuration
+const MAX_URL_LENGTH = 70;
+const URL_PREFIX_LENGTH = 40;
+const URL_SUFFIX_LENGTH = 27;
+
 testConnectionStrings.forEach((test) => {
   try {
     // Basic URL parsing test
@@ -42,8 +47,8 @@ testConnectionStrings.forEach((test) => {
     if (isValid === test.expected) {
       console.log(`✅ ${test.name}`);
       // Truncate URL intelligently - show protocol, host (partially), and important params
-      const displayUrl = test.url.length > 70 
-        ? `${test.url.substring(0, 40)}...${test.url.substring(test.url.length - 27)}`
+      const displayUrl = test.url.length > MAX_URL_LENGTH 
+        ? `${test.url.substring(0, URL_PREFIX_LENGTH)}...${test.url.substring(test.url.length - URL_SUFFIX_LENGTH)}`
         : test.url;
       console.log(`   ${displayUrl}`);
     } else {

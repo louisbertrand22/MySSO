@@ -115,7 +115,8 @@ If you have existing data in a local PostgreSQL database that you want to migrat
 1. **Export your local database:**
    ```bash
    # Adjust the -h, -U, and -d parameters to match your local PostgreSQL setup
-   pg_dump -h localhost -U postgres -d mysso --data-only > data_backup.sql
+   # Using --inserts for better compatibility across PostgreSQL versions
+   pg_dump -h localhost -U postgres -d mysso --data-only --inserts > data_backup.sql
    ```
 
 2. **Import to Supabase:**
