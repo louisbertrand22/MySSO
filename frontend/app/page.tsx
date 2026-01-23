@@ -34,7 +34,7 @@ export default function Home() {
             MySSO
           </h1>
           <p className="text-xl text-gray-300 mb-8">
-            Single Sign-On Authentication System
+            Système d'authentification unique
           </p>
         </div>
 
@@ -61,15 +61,15 @@ export default function Home() {
                 <div className="w-full border-t border-gray-600" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-800 text-gray-400">Features</span>
+                <span className="px-2 bg-gray-800 text-gray-400">Fonctionnalités</span>
               </div>
             </div>
 
             <div className="mt-6 text-left space-y-2">
-              <p className="text-sm text-gray-300">✓ Secure authentication with JWT</p>
-              <p className="text-sm text-gray-300">✓ Token refresh mechanism</p>
-              <p className="text-sm text-gray-300">✓ Protected dashboard</p>
-              <p className="text-sm text-gray-300">✓ Session management</p>
+              <p className="text-sm text-gray-300">✓ Authentification sécurisée avec JWT</p>
+              <p className="text-sm text-gray-300">✓ Mécanisme de rafraîchissement des tokens</p>
+              <p className="text-sm text-gray-300">✓ Tableau de bord protégé</p>
+              <p className="text-sm text-gray-300">✓ Gestion des sessions</p>
             </div>
           </div>
         </div>
