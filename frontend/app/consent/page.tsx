@@ -28,8 +28,9 @@ function ConsentContent() {
   useEffect(() => {
     const fetchConsentData = async () => {
       try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
         const params = new URLSearchParams(searchParams.toString());
-        const response = await fetch(`http://localhost:3000/consent?${params.toString()}`, {
+        const response = await fetch(`${apiUrl}/consent?${params.toString()}`, {
           credentials: 'include', // Include cookies for authentication
         });
 
@@ -52,18 +53,20 @@ function ConsentContent() {
   const handleApprove = async () => {
     // Au lieu de fetch, on redirige l'utilisateur vers le backend 
     // pour qu'il traite le POST et redirige physiquement le navigateur.
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const params = new URLSearchParams(searchParams.toString());
     params.set('approved', 'true');
     
     // On redirige vers l'endpoint du back qui va générer le code et rediriger vers 3001
-    window.location.href = `http://localhost:3000/authorize?${params.toString()}`;
+    window.location.href = `${apiUrl}/authorize?${params.toString()}`;
   };
 
   const handleDeny = async () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const params = new URLSearchParams(searchParams.toString());
     params.set('approved', 'false');
     
-    window.location.href = `http://localhost:3000/authorize?${params.toString()}`;
+    window.location.href = `${apiUrl}/authorize?${params.toString()}`;
   };
 
   if (loading) {
