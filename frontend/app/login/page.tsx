@@ -52,6 +52,12 @@ function LoginContent() {
           <p className="mt-2 text-center text-sm text-gray-600">
             Connect to access <strong>WatchAsset</strong>
           </p>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Don't have an account?{' '}
+            <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+              Sign up
+            </Link>
+          </p>
         </div>
         
         <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
