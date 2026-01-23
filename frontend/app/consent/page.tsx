@@ -71,7 +71,7 @@ function ConsentContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <p className="text-gray-600">Chargement...</p>
         </div>
@@ -81,7 +81,7 @@ function ConsentContent() {
 
   if (error || !consentData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full p-8 bg-white shadow rounded-lg text-center">
           <h1 className="text-2xl font-bold mb-4 text-red-600">Erreur</h1>
           <p className="mb-6 text-gray-700">{error || 'Unable to load consent information'}</p>
@@ -91,7 +91,7 @@ function ConsentContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="flex-1 flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full p-8 bg-white shadow rounded-lg">
         <h1 className="text-2xl font-bold mb-4 text-center text-gray-900">Autorisation requise</h1>
         <p className="mb-6 text-center text-gray-700">
