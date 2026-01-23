@@ -86,7 +86,7 @@ export class ClientController {
         return;
       }
 
-      const deleted = await ClientService.deleteClient(clientId);
+      const deleted = await ClientService.deleteClient(clientId as string);
 
       if (!deleted) {
         res.status(404).json({
@@ -142,7 +142,7 @@ export class ClientController {
       }
 
       const client = await ClientService.updateRedirectUris(
-        clientId,
+        clientId as string,
         redirectUris
       );
 
@@ -193,7 +193,7 @@ export class ClientController {
         return;
       }
 
-      const client = await ClientService.getClient(clientId);
+      const client = await ClientService.getClient(clientId as string);
 
       if (!client) {
         res.status(404).json({

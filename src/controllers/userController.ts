@@ -70,7 +70,7 @@ export class UserController {
       }
 
       // Revoke the consent
-      const revoked = await ConsentService.revokeConsent(userId, clientId);
+      const revoked = await ConsentService.revokeConsent(userId, clientId as string);
 
       if (!revoked) {
         res.status(404).json({
@@ -92,7 +92,7 @@ export class UserController {
       });
 
       // Log the revocation for audit purposes
-      SecurityLogger.logConsentRevocation(userId, clientId, {
+      SecurityLogger.logConsentRevocation(userId, clientId as string, {
         deletedTokens: deletedTokens.count,
       });
 
