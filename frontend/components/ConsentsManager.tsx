@@ -142,7 +142,7 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
                   >
                     {revoking === consent.clientId ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-700 border-t-transparent mr-2"></div>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-200 border-t-red-700 mr-2"></div>
                         Revoking...
                       </>
                     ) : (
