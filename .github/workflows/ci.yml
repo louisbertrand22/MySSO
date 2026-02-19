@@ -50,7 +50,6 @@ jobs:
 
     - name: Setup environment
       run: |
-        cp .env.example .env
         echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mysso?schema=public" >> .env
 
     - name: Run database migrations
