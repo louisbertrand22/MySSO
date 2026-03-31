@@ -24,27 +24,17 @@ export function authMiddleware(
 ): void {
   try {
     // Get the Authorization header
+    let token: string | undefined;
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
-      res.status(401).json({
-        error: 'unauthorized',
-        message: 'No authorization header provided',
-      });
-      return;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
     }
 
-    // Check if it's a Bearer token
-    if (!authHeader.startsWith('Bearer ')) {
-      res.status(401).json({
-        error: 'unauthorized',
-        message: 'Invalid authorization header format. Expected: Bearer <token>',
-      });
-      return;
+    if (!token && req.cookies) {
+      // On utilise l'access token s'il est en cookie, ou le refresh token selon ta logique
+      token = req.cookies.accessToken || req.cookies.refreshToken;
     }
-
-    // Extract the token
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
     if (!token) {
       res.status(401).json({

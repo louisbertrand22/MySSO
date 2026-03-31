@@ -15,11 +15,15 @@ const DEFAULT_SCOPES = [
   },
   {
     name: 'profile',
-    description: 'Access basic profile information (name, picture, etc.)',
+    description: 'Access basic profile information (name, username, picture, etc.)',
   },
   {
     name: 'email',
     description: 'Access email address',
+  },
+  {
+    name: 'username',
+    description: 'Access username',
   },
   {
     name: 'admin',

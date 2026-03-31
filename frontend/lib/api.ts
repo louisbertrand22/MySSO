@@ -109,6 +109,7 @@ export class ApiService {
       return {
         id: payload.sub,
         email: payload.email || '',
+        username: payload.username || undefined,
         createdAt: payload.createdAt || new Date(payload.iat * 1000).toISOString(),
       };
     } catch (error) {
@@ -153,5 +154,26 @@ export class ApiService {
       const error = await response.json();
       throw new Error(error.error || 'Failed to revoke consent');
     }
+  }
+
+  /**
+   * Update user profile (username)
+   */
+  static async updateProfile(accessToken: string, username: string): Promise<{ user: User }> {
+    const response = await fetch(`${API_URL}/user/profile`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error_description || error.error || 'Failed to update profile');
+    }
+
+    return response.json();
   }
 }

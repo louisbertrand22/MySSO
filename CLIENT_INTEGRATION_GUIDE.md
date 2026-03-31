@@ -62,17 +62,17 @@ Before integrating with MySSO, ensure you have:
 MySSO provides auto-discovery through the standard endpoint:
 
 ```bash
-curl https://sso.example.com/.well-known/openid-configuration
+curl https://sso.lucho-dev.xyz/.well-known/openid-configuration
 ```
 
 **Response:**
 ```json
 {
-  "issuer": "https://sso.example.com",
-  "authorization_endpoint": "https://sso.example.com/authorize",
-  "token_endpoint": "https://sso.example.com/token",
-  "userinfo_endpoint": "https://sso.example.com/userinfo",
-  "jwks_uri": "https://sso.example.com/jwks.json",
+  "issuer": "https://sso.lucho-dev.xyz",
+  "authorization_endpoint": "https://sso.lucho-dev.xyz/authorize",
+  "token_endpoint": "https://sso.lucho-dev.xyz/token",
+  "userinfo_endpoint": "https://sso.lucho-dev.xyz/userinfo",
+  "jwks_uri": "https://sso.lucho-dev.xyz/jwks.json",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "id_token_signing_alg_values_supported": ["RS256"],
@@ -116,7 +116,7 @@ Create a configuration file or environment variables:
 
 ```bash
 # .env
-OIDC_ISSUER=https://sso.example.com
+OIDC_ISSUER=https://sso.lucho-dev.xyz
 OIDC_CLIENT_ID=my-app-client-id
 OIDC_CLIENT_SECRET=secret123
 OIDC_REDIRECT_URI=https://myapp.com/auth/callback
@@ -252,7 +252,7 @@ async function handleCallback() {
 async function getUserInfo() {
   const accessToken = sessionStorage.getItem('access_token');
   
-  const response = await fetch('https://sso.example.com/userinfo', {
+  const response = await fetch('https://sso.lucho-dev.xyz/userinfo', {
     headers: {
       'Authorization': `Bearer ${accessToken}`
     }
@@ -274,7 +274,7 @@ import requests
 from urllib.parse import urlencode
 
 # Configuration
-OIDC_ISSUER = "https://sso.example.com"
+OIDC_ISSUER = "https://sso.lucho-dev.xyz"
 CLIENT_ID = "my-app-client-id"
 CLIENT_SECRET = "secret123"  # Only for confidential clients
 REDIRECT_URI = "https://myapp.com/auth/callback"

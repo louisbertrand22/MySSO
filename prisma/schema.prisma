@@ -8,11 +8,13 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
+  username      String?        @unique
   passwordHash  String
   createdAt     DateTime       @default(now())
   sessions      Session[]
@@ -61,7 +63,7 @@ model Client {
   clientId      String        @unique
   clientSecret  String
   redirectUris  String[]
-  allowedScopes String[]      @default(["openid", "profile", "email"])
+  allowedScopes String[]      @default(["openid", "profile", "email", "username"])
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   authCodes     AuthCode[]
