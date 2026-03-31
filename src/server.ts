@@ -1,12 +1,13 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { config, validateConfig } from './config/env';
 import authRoutes from './routes/authRoutes';
 import clientRoutes from './routes/clientRoutes';
 import userRoutes from './routes/userRoutes';
 import adminRoutes from './routes/adminRoutes';
-import { JwtService } from './services/jwtService';
 
 // Validate configuration
 validateConfig();
@@ -14,39 +15,79 @@ validateConfig();
 // Create Express app
 const app = express();
 
-// Middleware
-// CORS configuration - restrict to specific origins in production
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:3002', 'http://localhost:3001'];
+// Security headers (CSP, X-Frame-Options, HSTS, X-Content-Type-Options, etc.)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,       // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
+
+// CORS configuration - always validate against explicit whitelist
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:3001'];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
+    // Allow requests with no origin (mobile apps, curl)
     if (!origin) return callback(null, true);
-    
-    // In development, allow all origins
-    if (process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    }
-    
-    // In production, check against allowed origins
-    if (allowedOrigins.indexOf(origin) !== -1) {
+
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 }));
 
 // Cookie parser for HttpOnly cookies
-// CSRF Protection: We use SameSite='strict' cookies which prevent CSRF attacks
-// by ensuring cookies are only sent with same-site requests
+// CSRF Protection: SameSite='strict' cookies prevent CSRF attacks
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Too many attempts, please try again later' },
+  skipSuccessfulRequests: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Too many registration attempts, please try again later' },
+});
+
+const tokenLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Too many token requests, please try again later' },
+});
 
 /**
  * Health check endpoint
@@ -60,27 +101,10 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-/**
- * Test JWT generation endpoint
- * GET /test/jwt
- */
-app.get('/test/jwt', (_req: Request, res: Response) => {
-  try {
-    const token = JwtService.generateTestToken();
-    const decoded = JwtService.decode(token);
-    
-    res.json({
-      token,
-      decoded,
-      message: 'Test JWT generated successfully',
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: 'Failed to generate test JWT',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+// Apply rate limiters to sensitive auth endpoints before mounting routes
+app.use('/auth/login', authLimiter);
+app.use('/auth/register', registerLimiter);
+app.use('/token', tokenLimiter);
 
 // Mount auth routes
 app.use('/', authRoutes);
@@ -114,11 +138,10 @@ app.use((err: Error, _req: Request, res: Response, _next: any) => {
 // Start server
 const PORT = config.port;
 app.listen(PORT, () => {
-  console.log(`🚀 MySSO server running on port ${PORT}`);
-  console.log(`📍 Health check: ${config.baseUrl}/health`);
-  console.log(`📍 OpenID Configuration: ${config.baseUrl}/.well-known/openid-configuration`);
-  console.log(`📍 JWKS: ${config.baseUrl}/jwks.json`);
-  console.log(`🧪 Test JWT: ${config.baseUrl}/test/jwt`);
+  console.log(`MySSO server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`OpenID Configuration: http://localhost:${PORT}/.well-known/openid-configuration`);
+  console.log(`JWKS: http://localhost:${PORT}/jwks.json`);
 });
 
 export default app;

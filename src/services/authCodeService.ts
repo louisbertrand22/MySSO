@@ -9,16 +9,6 @@ const prisma = new PrismaClient()
  * Manages OAuth2 authorization codes for the authorization code flow
  */
 export class AuthCodeService {
-  // Whitelist of allowed redirect URIs
-  // In production, this should be fetched from a database or configuration
-  private static ALLOWED_REDIRECT_URIS = [
-    'http://localhost:5173',
-    'http://localhost:3001',
-    'http://localhost:3000/callback',
-    'http://localhost:5173/callback',
-    'http://localhost:3001/callback',
-  ]
-
   // Auth code expiration time in seconds (60 seconds as per requirements)
   private static AUTH_CODE_EXPIRATION_SECONDS = 60
 
@@ -161,21 +151,18 @@ export class AuthCodeService {
       return isAllowed
     }
 
-    // Fallback: In development, be more permissive for backward compatibility
+    // Without a clientId, only allow localhost in development mode
     if (process.env.NODE_ENV === 'development') {
-      // Check if it's a localhost URL
       try {
         const url = new URL(redirectUri)
-        if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-          return true
-        }
-      } catch (error) {
+        return url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+      } catch {
         return false
       }
     }
 
-    // Check against legacy whitelist (for backward compatibility)
-    return this.ALLOWED_REDIRECT_URIS.includes(redirectUri)
+    // In production, a clientId is always required
+    return false
   }
 
   /**

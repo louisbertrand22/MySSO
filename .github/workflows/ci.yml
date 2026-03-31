@@ -51,6 +51,7 @@ jobs:
     - name: Setup environment
       run: |
         echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mysso?schema=public" >> .env
+        echo "DIRECT_URL=postgresql://postgres:postgres@localhost:5432/mysso?schema=public" >> .env
 
     - name: Run database migrations
       run: npx prisma migrate deploy
