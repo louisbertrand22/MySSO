@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /c/Users/louis/Documents/Projets-Github/MySSO/src/**/*.ts)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm audit:*)",
+      "Bash(node -e \"const d=require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\); const r=JSON.parse\\(d\\); Object.entries\\(r.vulnerabilities||{}\\).forEach\\(\\([k,v]\\)=>console.log\\(v.severity, k, v.fixAvailable\\)\\)\")"
+    ]
+  }
+}

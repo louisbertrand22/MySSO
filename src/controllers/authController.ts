@@ -67,7 +67,9 @@ export class AuthController {
       const prisma = AuthService.getPrisma();
       const user = await prisma.user.findUnique({ where: { email } });
 
+
       if (!user || !(await AuthService.verifyPassword(password, user.passwordHash))) {
+        SecurityLogger.logLoginFailure(email, req.ip, 'invalid_credentials');
         res.status(401).json({ error: "Invalid credentials" });
         return;
       }
@@ -86,6 +88,7 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
+      SecurityLogger.logLoginSuccess(user.id, user.email, req.ip);
       res.json({ accessToken, refreshToken });
     } catch (error) {
       console.error('Login error:', error);
@@ -159,6 +162,22 @@ export class AuthController {
       if (!stored.user) {
         await prisma.refreshToken.delete({ where: { token: refreshToken } });
         res.status(403).json({ error: "User not found" });
+        return;
+      }
+
+      // Check that the user has at least one active (non-revoked, non-expired) session.
+      // If all sessions are revoked (e.g. logout-all was called), refuse the refresh even
+      // if the refresh token somehow still exists in the database.
+      const activeSession = await prisma.session.findFirst({
+        where: {
+          userId: stored.userId,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+      });
+      if (!activeSession) {
+        await prisma.refreshToken.delete({ where: { token: refreshToken } });
+        res.status(403).json({ error: "Session expired or revoked" });
         return;
       }
 
@@ -819,6 +838,8 @@ export class AuthController {
           sameSite: 'strict',
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
+
+        SecurityLogger.logTokenGrant(user.id, clientId ?? null, scopes);
 
         // Return tokens in OAuth2/OIDC format
         const response: any = {
