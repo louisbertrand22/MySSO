@@ -45,7 +45,7 @@ function LoginContent() {
           </p>
         </div>
 
-        <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="mt-8 bg-gray-800 py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
           <AuthForm mode="login" onSubmit={handleSubmit} error={error} />
         </div>
       </div>
