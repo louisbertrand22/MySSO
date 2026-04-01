@@ -10,7 +10,6 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
-  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
   const returnTo = searchParams.get('returnTo');
