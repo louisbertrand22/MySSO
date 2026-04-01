@@ -37,10 +37,10 @@ function LoginContent() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
             Se connecter à MySSO
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link href={registerHref} className="font-medium text-indigo-600 hover:text-indigo-500">
-              create a new account
+          <p className="mt-2 text-center text-sm text-gray-300">
+            Vous n'avez pas de compte ?{' '}
+            <Link href={registerHref} className="font-medium text-indigo-400 hover:text-indigo-300">
+              S'inscrire pour un compte gratuit
             </Link>
           </p>
         </div>
