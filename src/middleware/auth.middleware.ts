@@ -32,8 +32,7 @@ export function authMiddleware(
     }
 
     if (!token && req.cookies) {
-      // On utilise l'access token s'il est en cookie, ou le refresh token selon ta logique
-      token = req.cookies.accessToken || req.cookies.refreshToken;
+      token = req.cookies.accessToken;
     }
 
     if (!token) {
