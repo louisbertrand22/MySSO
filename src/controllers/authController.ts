@@ -408,7 +408,7 @@ export class AuthController {
         decoded = JwtService.verify(token);
       } catch (error) {
         // Si le token est invalide/expiré, on renvoie au login pour renouveler la session
-        const loginUrl = `http://localhost:3002/login?returnTo=${encodeURIComponent(req.originalUrl)}`;
+        const loginUrl = `${config.frontendUrl}/login?returnTo=${encodeURIComponent(req.originalUrl)}`;
         res.redirect(loginUrl);
         return;
       }
