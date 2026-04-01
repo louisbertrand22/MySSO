@@ -1,25 +1,34 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthForm from '@/components/AuthForm';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const { login } = useAuth();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+
+  const returnTo = searchParams.get('returnTo');
+  // Only allow relative paths to prevent open redirect
+  const safeRedirect = returnTo && returnTo.startsWith('/') ? returnTo : '/dashboard';
 
   const handleSubmit = async (email: string, password: string) => {
     setError(null);
     try {
       await login({ email, password });
-      router.push('/dashboard');
+      router.push(safeRedirect);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login');
     }
   };
+
+  const registerHref = returnTo
+    ? `/register?returnTo=${encodeURIComponent(returnTo)}`
+    : '/register';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -30,16 +39,24 @@ export default function LoginPage() {
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Or{' '}
-            <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <Link href={registerHref} className="font-medium text-indigo-600 hover:text-indigo-500">
               create a new account
             </Link>
           </p>
         </div>
-        
+
         <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <AuthForm mode="login" onSubmit={handleSubmit} error={error} />
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }

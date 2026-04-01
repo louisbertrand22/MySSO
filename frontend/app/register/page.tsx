@@ -1,25 +1,34 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthForm from '@/components/AuthForm';
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
   const { register } = useAuth();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+
+  const returnTo = searchParams.get('returnTo');
+  // Only allow relative paths to prevent open redirect
+  const safeRedirect = returnTo && returnTo.startsWith('/') ? returnTo : '/dashboard';
 
   const handleSubmit = async (email: string, password: string) => {
     setError(null);
     try {
       await register({ email, password });
-      router.push('/dashboard');
+      router.push(safeRedirect);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during registration');
     }
   };
+
+  const loginHref = returnTo
+    ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+    : '/login';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -30,16 +39,24 @@ export default function RegisterPage() {
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <Link href={loginHref} className="font-medium text-indigo-600 hover:text-indigo-500">
               Sign in
             </Link>
           </p>
         </div>
-        
+
         <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <AuthForm mode="register" onSubmit={handleSubmit} error={error} />
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterContent />
+    </Suspense>
   );
 }
