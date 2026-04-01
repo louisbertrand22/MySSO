@@ -1,21 +1,34 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthForm from '@/components/AuthForm';
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register } = useAuth();
   const [error, setError] = useState<string | null>(null);
+
+  const returnTo = searchParams.get('returnTo');
 
   const handleSubmit = async (email: string, password: string) => {
     setError(null);
     try {
       await register({ email, password });
-      router.push('/dashboard');
+
+      if (returnTo) {
+        const decodedPath = decodeURIComponent(returnTo);
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+        const fullUrl = new URL(decodedPath, baseUrl).toString();
+        setTimeout(() => {
+          window.location.replace(fullUrl);
+        }, 100);
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during registration');
     }
@@ -30,7 +43,7 @@ export default function RegisterPage() {
           </h2>
           <p className="mt-2 text-center text-sm text-gray-300">
             Vous avez déjà un compte ?{' '}
-            <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300">
+            <Link href={returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'} className="font-medium text-indigo-400 hover:text-indigo-300">
               Se connecter
             </Link>
           </p>
@@ -41,5 +54,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-10">Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }

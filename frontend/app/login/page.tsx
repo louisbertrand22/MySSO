@@ -51,7 +51,7 @@ function LoginContent() {
           </h2>
           <p className="mt-2 text-center text-sm text-gray-300">
             Vous n'avez pas de compte ?{' '}
-            <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
+            <Link href={returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register'} className="font-medium text-indigo-400 hover:text-indigo-300">
               S'inscrire
             </Link>
           </p>
