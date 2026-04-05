@@ -128,7 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.refreshToken) {
         localStorage.setItem('refreshToken', data.refreshToken);
       }
-      setUser(data.user);
+      const userData = ApiService.getUserFromToken(data.accessToken);
+      if (userData) setUser(userData);
       return data; 
     } catch (error) {
       console.error(error);
