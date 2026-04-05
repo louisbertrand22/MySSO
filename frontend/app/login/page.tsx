@@ -13,14 +13,21 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
 
   const returnTo = searchParams.get('returnTo');
-  // Only allow relative paths to prevent open redirect
-  const safeRedirect = returnTo && returnTo.startsWith('/') ? returnTo : '/dashboard';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+  // Allow relative paths or full URLs pointing to the backend only (prevent open redirect)
+  const isBackendUrl = returnTo && returnTo.startsWith(apiUrl);
+  const safeRedirect = (returnTo && returnTo.startsWith('/')) || isBackendUrl ? returnTo : '/dashboard';
 
   const handleSubmit = async (email: string, password: string) => {
     setError(null);
     try {
       await login({ email, password });
-      router.push(safeRedirect);
+      if (isBackendUrl) {
+        window.location.href = safeRedirect!;
+      } else {
+        router.push(safeRedirect!);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     }
