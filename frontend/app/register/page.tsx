@@ -8,6 +8,7 @@ import AuthForm from '@/components/AuthForm';
 
 function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register } = useAuth();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
