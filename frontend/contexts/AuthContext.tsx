@@ -50,15 +50,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const response = await ApiService.refresh(refreshToken);
-    
+
     const userData = ApiService.getUserFromToken(response.accessToken);
     if (!userData) {
       throw new Error('Failed to extract user data from refreshed access token');
     }
-    
+
     setAccessToken(response.accessToken);
     setUser(userData);
     localStorage.setItem('accessToken', response.accessToken);
+    if (response.refreshToken) {
+      localStorage.setItem('refreshToken', response.refreshToken);
+    }
   };
 
 

@@ -56,7 +56,7 @@ export class ApiService {
   /**
    * Refresh access token
    */
-  static async refresh(refreshToken: string): Promise<{ accessToken: string }> {
+  static async refresh(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const response = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: {
