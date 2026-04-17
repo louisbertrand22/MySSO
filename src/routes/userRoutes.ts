@@ -5,17 +5,88 @@ import { authMiddleware } from '../middleware/auth.middleware';
 const router = Router();
 
 /**
- * User Endpoints
- * All routes require authentication via authMiddleware
+ * @swagger
+ * /user/consents:
+ *   get:
+ *     tags: [User]
+ *     summary: List all consents granted by the authenticated user
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of consents
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   clientId:
+ *                     type: string
+ *                   clientName:
+ *                     type: string
+ *                   scopes:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *       401:
+ *         description: Unauthorized
  */
-
-// Get all user consents
 router.get('/user/consents', authMiddleware, UserController.getConsents);
 
-// Revoke consent for a specific client
+/**
+ * @swagger
+ * /user/consents/{clientId}:
+ *   delete:
+ *     tags: [User]
+ *     summary: Revoke consent for a specific client
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: clientId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Consent revoked
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Consent not found
+ */
 router.delete('/user/consents/:clientId', authMiddleware, UserController.revokeConsent);
 
-// Update user profile
+/**
+ * @swagger
+ * /user/profile:
+ *   patch:
+ *     tags: [User]
+ *     summary: Update user profile (username)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
 router.patch('/user/profile', authMiddleware, UserController.updateProfile);
 
 export default router;

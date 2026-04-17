@@ -3,7 +3,9 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
 import { config, validateConfig } from './config/env';
+import { swaggerSpec } from './config/swagger';
 import authRoutes from './routes/authRoutes';
 import clientRoutes from './routes/clientRoutes';
 import userRoutes from './routes/userRoutes';
@@ -14,6 +16,11 @@ validateConfig();
 
 // Create Express app
 const app = express();
+
+// Swagger UI — relaxed CSP only for /api-docs
+app.use('/api-docs', helmet({ contentSecurityPolicy: false }));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'MySSO API Docs' }));
+app.get('/api-docs.json', (_req: Request, res: Response) => res.json(swaggerSpec));
 
 // Security headers (CSP, X-Frame-Options, HSTS, X-Content-Type-Options, etc.)
 app.use(helmet({

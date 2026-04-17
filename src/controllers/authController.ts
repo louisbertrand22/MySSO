@@ -349,21 +349,45 @@ export class AuthController {
    */
   static async getOpenIdConfiguration(_req: Request, res: Response): Promise<void> {
     const baseUrl = config.jwt.issuer;
-    
+
     const configuration = {
       issuer: baseUrl,
       authorization_endpoint: `${baseUrl}/authorize`,
       token_endpoint: `${baseUrl}/token`,
       userinfo_endpoint: `${baseUrl}/userinfo`,
       jwks_uri: `${baseUrl}/jwks.json`,
-      response_types_supported: ['code', 'token', 'id_token'],
+      end_session_endpoint: `${baseUrl}/auth/logout`,
+      registration_endpoint: `${baseUrl}/clients/register`,
+
+      response_types_supported: ['code'],
+      response_modes_supported: ['query'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
+      userinfo_signing_alg_values_supported: ['none'],
+
       scopes_supported: ['openid', 'profile', 'email', 'username'],
+      claims_supported: [
+        'iss', 'sub', 'aud', 'exp', 'iat', 'auth_time', 'nonce',
+        'name', 'email', 'email_verified', 'preferred_username', 'updated_at',
+        'username',
+      ],
+      claim_types_supported: ['normal'],
+
       token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post', 'none'],
-      claims_supported: ['sub', 'name', 'email', 'email_verified', 'preferred_username', 'updated_at', 'iat', 'auth_time', 'nonce'],
       code_challenge_methods_supported: ['plain', 'S256'],
-      grant_types_supported: ['authorization_code', 'refresh_token'],
+
+      acr_values_supported: ['urn:mace:incommon:iap:bronze'],
+
+      request_parameter_supported: false,
+      request_uri_parameter_supported: false,
+      claims_parameter_supported: false,
+
+      display_values_supported: ['page'],
+      ui_locales_supported: ['fr', 'en'],
+
+      service_documentation: `${baseUrl}/api-docs`,
     };
 
     res.json(configuration);
