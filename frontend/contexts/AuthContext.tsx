@@ -50,15 +50,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const response = await ApiService.refresh(refreshToken);
-    
+
     const userData = ApiService.getUserFromToken(response.accessToken);
     if (!userData) {
       throw new Error('Failed to extract user data from refreshed access token');
     }
-    
+
     setAccessToken(response.accessToken);
     setUser(userData);
     localStorage.setItem('accessToken', response.accessToken);
+    if (response.refreshToken) {
+      localStorage.setItem('refreshToken', response.refreshToken);
+    }
   };
 
 
@@ -125,7 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.refreshToken) {
         localStorage.setItem('refreshToken', data.refreshToken);
       }
-      setUser(data.user);
+      const userData = ApiService.getUserFromToken(data.accessToken);
+      if (userData) setUser(userData);
       return data; 
     } catch (error) {
       console.error(error);

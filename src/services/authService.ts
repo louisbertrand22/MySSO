@@ -39,12 +39,12 @@ export class AuthService {
   }
 
   /**
-   * Generate a refresh token (JWT with 7 day expiration)
+   * Generate a refresh token (JWT with 90 day expiration)
    * @param userId - User ID
    * @returns Refresh token
    */
   static generateRefreshToken(userId: string): string {
-    return JwtService.sign({ sub: userId, type: "refresh" }, { expiresIn: "7d" })
+    return JwtService.sign({ sub: userId, type: "refresh" }, { expiresIn: "90d" })
   }
 
   /**
@@ -99,7 +99,7 @@ export class AuthService {
     // Generate refresh token with unique jti to prevent token reuse
     const refreshToken = JwtService.sign(
       { sub: userId, type: "refresh", jti },
-      { expiresIn: "7d" }
+      { expiresIn: "90d" }
     )
 
     // Store refresh token in database
@@ -107,7 +107,7 @@ export class AuthService {
       data: {
         userId,
         token: refreshToken,
-        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000), // 7 days
+        expiresAt: new Date(Date.now() + 90 * 24 * 3600 * 1000), // 90 days
       },
     })
 
@@ -115,7 +115,7 @@ export class AuthService {
     await prisma.session.create({
       data: {
         userId,
-        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000), // 7 days (same as refresh token)
+        expiresAt: new Date(Date.now() + 90 * 24 * 3600 * 1000), // 90 days (same as refresh token)
       },
     })
 

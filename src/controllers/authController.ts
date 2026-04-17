@@ -92,7 +92,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 90 * 24 * 60 * 60 * 1000 // 90 days
       });
 
       SecurityLogger.logLoginSuccess(user.id, user.email, req.ip);
@@ -200,7 +200,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 90 * 24 * 60 * 60 * 1000 // 90 days
       });
 
       res.json({ 
@@ -397,7 +397,8 @@ export class AuthController {
 
       // 3. SI PAS DE TOKEN : Redirection vers le Login
       if (!token) {
-        const loginUrl = `${config.frontendUrl}/login?returnTo=${encodeURIComponent(req.originalUrl)}`;
+        const fullAuthorizeUrl = `${config.jwt.issuer}${req.originalUrl}`;
+        const loginUrl = `${config.frontendUrl}/login?returnTo=${encodeURIComponent(fullAuthorizeUrl)}`;
         res.redirect(loginUrl);
         return;
       }
@@ -408,7 +409,8 @@ export class AuthController {
         decoded = JwtService.verify(token);
       } catch (error) {
         // Si le token est invalide/expiré, on renvoie au login pour renouveler la session
-        const loginUrl = `http://localhost:3002/login?returnTo=${encodeURIComponent(req.originalUrl)}`;
+        const fullAuthorizeUrl = `${config.jwt.issuer}${req.originalUrl}`;
+        const loginUrl = `${config.frontendUrl}/login?returnTo=${encodeURIComponent(fullAuthorizeUrl)}`;
         res.redirect(loginUrl);
         return;
       }
@@ -821,7 +823,7 @@ export class AuthController {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+          maxAge: 90 * 24 * 60 * 60 * 1000 // 90 days
         });
 
         SecurityLogger.logTokenGrant(user.id, clientId ?? null, scopes);
