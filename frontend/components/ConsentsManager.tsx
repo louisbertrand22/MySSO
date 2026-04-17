@@ -100,7 +100,7 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
         <div className="space-y-4">
           {consents.map((consent) => (
             <div key={consent.id} className="p-5 bg-gradient-to-r from-gray-700/50 to-gray-800/50 rounded-xl border border-gray-600 hover:shadow-lg transition-all duration-200 hover:border-indigo-500">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow">
@@ -138,7 +138,7 @@ export default function ConsentsManager({ accessToken }: ConsentsManagerProps) {
                   <button
                     onClick={() => handleRevoke(consent.clientId)}
                     disabled={revoking === consent.clientId}
-                    className="inline-flex items-center px-4 py-2.5 border-2 border-red-600 text-sm font-semibold rounded-xl text-red-300 bg-red-900/30 hover:bg-red-900/50 hover:border-red-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
+                    className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2.5 border-2 border-red-600 text-sm font-semibold rounded-xl text-red-300 bg-red-900/30 hover:bg-red-900/50 hover:border-red-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
                   >
                     {revoking === consent.clientId ? (
                       <>
