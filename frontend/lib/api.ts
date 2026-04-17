@@ -158,6 +158,21 @@ export class ApiService {
   }
 
   /**
+   * Delete own account (GDPR)
+   */
+  static async deleteAccount(accessToken: string): Promise<void> {
+    const response = await fetch(`${API_URL}/user/account`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error_description || error.error || 'Failed to delete account');
+    }
+  }
+
+  /**
    * Update user profile (username)
    */
   static async updateProfile(accessToken: string, username: string): Promise<{ user: User }> {

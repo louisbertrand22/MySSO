@@ -4,6 +4,7 @@ import { ConsentService } from '../services/consentService';
 import { SecurityLogger } from '../services/securityLogger';
 import { AuthService } from '../services/authService';
 import { validateUsername, USERNAME_ERROR_MESSAGES } from '../utils/validation';
+import { prisma } from '../services/authService';
 
 /**
  * User Controller
@@ -169,6 +170,44 @@ export class UserController {
       res.status(500).json({
         error: 'server_error',
         error_description: 'Failed to update profile',
+      });
+    }
+  }
+
+  /**
+   * DELETE /user/account
+   * GDPR-compliant self-serve account deletion with full cascade
+   */
+  static async deleteAccount(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'unauthorized', error_description: 'User must be authenticated' });
+        return;
+      }
+
+      const userId = req.user.sub;
+      const email = req.user.email as string;
+      const ip = req.ip;
+
+      await prisma.$transaction([
+        prisma.session.deleteMany({ where: { userId } }),
+        prisma.refreshToken.deleteMany({ where: { userId } }),
+        prisma.authCode.deleteMany({ where: { userId } }),
+        prisma.userConsent.deleteMany({ where: { userId } }),
+        prisma.user.delete({ where: { id: userId } }),
+      ]);
+
+      SecurityLogger.logAccountDeletion(userId, email, ip);
+
+      res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict' });
+      res.clearCookie('accessToken', { httpOnly: true, sameSite: 'strict' });
+
+      res.json({ message: 'Account deleted successfully' });
+    } catch (error) {
+      console.error('Delete account error:', error);
+      res.status(500).json({
+        error: 'server_error',
+        error_description: 'Failed to delete account',
       });
     }
   }

@@ -75,4 +75,8 @@ export class SecurityLogger {
   static logAdminAction(adminId: string, action: string, target?: string, metadata?: Record<string, unknown>): void {
     writeLog({ timestamp: new Date().toISOString(), event: 'ADMIN_ACTION', userId: adminId, action, target, ...metadata });
   }
+
+  static logAccountDeletion(userId: string, email: string, ip?: string): void {
+    writeLog({ timestamp: new Date().toISOString(), event: 'ACCOUNT_DELETION', userId, email, ip });
+  }
 }

@@ -14,6 +14,10 @@ export default function DashboardPage() {
   const [newUsername, setNewUsername] = useState('');
   const [usernameError, setUsernameError] = useState('');
   const [usernameSaving, setUsernameSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -24,6 +28,20 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     await logout();
     router.push('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!accessToken || deleteConfirm !== user?.email) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await ApiService.deleteAccount(accessToken);
+      await logout();
+      router.push('/login');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Erreur lors de la suppression');
+      setDeleting(false);
+    }
   };
 
   const handleEditUsername = () => {
@@ -282,6 +300,37 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Danger Zone Card */}
+          <div className="bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-red-900/40 hover:shadow-2xl transition-all duration-300">
+            <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-red-500/10 to-rose-500/10 border-b border-red-900/40">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-rose-700 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl leading-6 font-bold text-red-300">Zone dangereuse</h3>
+                  <p className="mt-1 text-sm text-gray-400">Actions irréversibles sur votre compte</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-6 sm:px-8 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-200">Supprimer mon compte</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Supprime définitivement votre compte, vos sessions, tokens et consentements (RGPD Art. 17).
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowDeleteModal(true); setDeleteConfirm(''); setDeleteError(''); }}
+                className="shrink-0 px-4 py-2 bg-red-700 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors shadow"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+
           {/* Authorized Applications Card */}
           <div className="bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-700/20 hover:shadow-2xl transition-all duration-300">
             <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-b border-gray-700/50">
@@ -313,6 +362,55 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-gray-800 border border-red-900/50 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-700 rounded-xl flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-white">Supprimer mon compte</h2>
+            </div>
+            <p className="text-sm text-gray-300">
+              Cette action est <span className="text-red-400 font-semibold">irréversible</span>. Toutes vos données seront supprimées définitivement (sessions, tokens, consentements).
+            </p>
+            <div className="space-y-2">
+              <label className="text-xs text-gray-400">
+                Tapez votre adresse e-mail <span className="text-white font-mono">{user?.email}</span> pour confirmer :
+              </label>
+              <input
+                type="email"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder={user?.email}
+                disabled={deleting}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+            {deleteError && <p className="text-sm text-red-400">{deleteError}</p>}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-semibold rounded-xl transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting || deleteConfirm !== user?.email}
+                className="px-4 py-2 bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors"
+              >
+                {deleting ? 'Suppression...' : 'Supprimer définitivement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

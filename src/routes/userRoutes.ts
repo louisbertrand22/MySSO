@@ -64,6 +64,25 @@ router.delete('/user/consents/:clientId', authMiddleware, UserController.revokeC
 
 /**
  * @swagger
+ * /user/account:
+ *   delete:
+ *     tags: [User]
+ *     summary: Delete own account (GDPR — full cascade)
+ *     description: Permanently deletes the authenticated user's account, sessions, tokens, auth codes, and consents.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.delete('/user/account', authMiddleware, UserController.deleteAccount);
+
+/**
+ * @swagger
  * /user/profile:
  *   patch:
  *     tags: [User]
