@@ -16,6 +16,8 @@ model User {
   email         String         @unique
   username      String?        @unique
   passwordHash  String
+  isDisabled    Boolean        @default(false)
+  isAdmin       Boolean        @default(false)
   createdAt     DateTime       @default(now())
   sessions      Session[]
   refreshTokens RefreshToken[]
@@ -91,4 +93,18 @@ model Scope {
   createdAt   DateTime @default(now())
 
   @@index([name])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  event     String
+  userId    String?
+  email     String?
+  ip        String?
+  data      Json?
+
+  @@index([timestamp])
+  @@index([event])
+  @@index([userId])
 }

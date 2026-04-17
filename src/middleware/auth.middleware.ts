@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '../services/jwtService';
+import { prisma } from '../services/authService';
 
 /**
  * Extended Request interface to include user information
@@ -17,11 +18,11 @@ export interface AuthenticatedRequest extends Request {
  * Verifies the JWT token from the Authorization header
  * and attaches the decoded user information to the request
  */
-export function authMiddleware(
+export async function authMiddleware(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   try {
     // Get the Authorization header
     let token: string | undefined;
@@ -45,6 +46,17 @@ export function authMiddleware(
 
     // Verify the token
     const decoded = JwtService.verify(token);
+
+    // Check if the user account is disabled
+    const dbUser = await prisma.user.findUnique({
+      where: { id: decoded.sub },
+      select: { isDisabled: true },
+    });
+
+    if (dbUser?.isDisabled) {
+      res.status(403).json({ error: 'account_disabled', message: 'Your account has been disabled' });
+      return;
+    }
 
     // Attach user information to the request
     req.user = decoded;

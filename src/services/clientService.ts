@@ -289,6 +289,48 @@ export class ClientService {
   }
 
   /**
+   * Update client name and/or allowed scopes
+   */
+  static async updateClient(
+    clientId: string,
+    updates: { name?: string; redirectUris?: string[]; allowedScopes?: string[] }
+  ): Promise<{ id: string; name: string; clientId: string; redirectUris: string[]; allowedScopes: string[] } | null> {
+    if (updates.redirectUris) {
+      for (const uri of updates.redirectUris) {
+        try { new URL(uri); } catch { throw new Error(`Invalid redirect URI: ${uri}`); }
+      }
+    }
+    try {
+      return await prisma.client.update({
+        where: { clientId },
+        data: {
+          ...(updates.name && { name: updates.name.trim() }),
+          ...(updates.redirectUris && { redirectUris: updates.redirectUris }),
+          ...(updates.allowedScopes && { allowedScopes: updates.allowedScopes }),
+        },
+        select: { id: true, name: true, clientId: true, redirectUris: true, allowedScopes: true },
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Rotate client secret — generates a new secret, stores it hashed, returns plaintext once
+   */
+  static async rotateClientSecret(
+    clientId: string
+  ): Promise<{ clientId: string; clientSecret: string } | null> {
+    const exists = await prisma.client.findUnique({ where: { clientId }, select: { id: true } });
+    if (!exists) return null;
+
+    const newSecret = this.generateClientSecret();
+    const hashed = await this.hashClientSecret(newSecret);
+    await prisma.client.update({ where: { clientId }, data: { clientSecret: hashed } });
+    return { clientId, clientSecret: newSecret };
+  }
+
+  /**
    * Get Prisma client instance
    */
   static getPrisma(): PrismaClient {

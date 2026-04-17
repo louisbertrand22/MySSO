@@ -111,6 +111,7 @@ export class ApiService {
         email: payload.email || '',
         username: payload.username || undefined,
         createdAt: payload.createdAt || new Date(payload.iat * 1000).toISOString(),
+        scopes: Array.isArray(payload.scopes) ? payload.scopes : payload.scope ? payload.scope.split(' ') : [],
       };
     } catch (error) {
       console.error('Failed to decode token:', error);

@@ -67,17 +67,22 @@ export class AuthController {
       const prisma = AuthService.getPrisma();
       const user = await prisma.user.findUnique({ where: { email } });
 
-
       if (!user || !(await AuthService.verifyPassword(password, user.passwordHash))) {
         SecurityLogger.logLoginFailure(email, req.ip, 'invalid_credentials');
         res.status(401).json({ error: "Invalid credentials" });
         return;
       }
 
-      // Generate tokens using the new generateTokens service
+      if (user.isDisabled) {
+        res.status(403).json({ error: "account_disabled", message: "Your account has been disabled" });
+        return;
+      }
+
+      const scopes = user.isAdmin ? ['admin'] : undefined;
       const { accessToken, refreshToken } = await AuthService.generateTokens(
         user.id,
-        user.email
+        user.email,
+        scopes
       );
 
       res.cookie('accessToken', accessToken, {
@@ -191,9 +196,18 @@ export class AuthController {
       // Token rotation: Delete the old refresh token
       await prisma.refreshToken.delete({ where: { token: refreshToken } });
 
-      // Generate new token pair
-      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = 
-        await AuthService.generateTokens(stored.userId, stored.user.email);
+      // Generate new token pair — re-include admin scope if applicable
+      const refreshedUser = await prisma.user.findUnique({
+        where: { id: stored.userId },
+        select: { isAdmin: true, isDisabled: true },
+      });
+      if (refreshedUser?.isDisabled) {
+        res.status(403).json({ error: "account_disabled", message: "Your account has been disabled" });
+        return;
+      }
+      const refreshScopes = refreshedUser?.isAdmin ? ['admin'] : undefined;
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
+        await AuthService.generateTokens(stored.userId, stored.user.email, refreshScopes);
       
       // Set new refresh token as HttpOnly cookie
       res.cookie('refreshToken', newRefreshToken, {
