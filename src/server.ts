@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { config, validateConfig } from './config/env';
 import { swaggerSpec } from './config/swagger';
+import { prisma } from './services/authService';
 import authRoutes from './routes/authRoutes';
 import clientRoutes from './routes/clientRoutes';
 import userRoutes from './routes/userRoutes';
@@ -16,6 +17,9 @@ validateConfig();
 
 // Create Express app
 const app = express();
+
+// Trust reverse proxy (Render, Railway, etc.) for correct IP detection
+app.set('trust proxy', 1);
 
 // Swagger UI — relaxed CSP only for /api-docs
 app.use('/api-docs', helmet({ contentSecurityPolicy: false }));
@@ -70,7 +74,19 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Rate limiters
+// Global rate limiter — applied to all routes
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120,            // 120 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Too many requests, please slow down' },
+  skip: (req) => req.path === '/health', // don't limit health checks
+});
+
+app.use(globalLimiter);
+
+// Route-specific rate limiters
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
@@ -100,11 +116,42 @@ const tokenLimiter = rateLimit({
  * Health check endpoint
  * GET /health
  */
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'healthy',
+app.get('/health', async (_req: Request, res: Response) => {
+  const start = Date.now();
+
+  // Check DB connectivity
+  let dbStatus: 'ok' | 'error' = 'ok';
+  let dbLatencyMs: number | null = null;
+  try {
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    dbLatencyMs = Date.now() - dbStart;
+  } catch {
+    dbStatus = 'error';
+  }
+
+  const mem = process.memoryUsage();
+  const uptimeSeconds = process.uptime();
+
+  const healthy = dbStatus === 'ok';
+
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
+    uptime: {
+      seconds: Math.floor(uptimeSeconds),
+      human: `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m ${Math.floor(uptimeSeconds % 60)}s`,
+    },
+    database: {
+      status: dbStatus,
+      latencyMs: dbLatencyMs,
+    },
+    memory: {
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+    },
+    responseTimeMs: Date.now() - start,
   });
 });
 
