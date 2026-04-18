@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ConsentsManager from '@/components/ConsentsManager';
+import ChangePasswordForm from '@/components/ChangePasswordForm';
 import { ApiService } from '@/lib/api';
 import { validateUsername } from '@/lib/validation';
 
@@ -257,6 +258,19 @@ export default function DashboardPage() {
                   </dt>
                   <dd className="mt-2 text-sm text-gray-200 sm:mt-0 sm:col-span-2 font-medium">
                     {new Date(user.createdAt).toLocaleString('fr-FR')}
+                  </dd>
+                </div>
+              </div>
+              <div className="px-6 py-5 sm:px-8 hover:bg-gray-700/30 transition-colors duration-200">
+                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+                  <dt className="text-sm font-semibold text-gray-400 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    Mot de passe
+                  </dt>
+                  <dd className="mt-2 sm:mt-0 sm:col-span-2">
+                    {accessToken && <ChangePasswordForm accessToken={accessToken} />}
                   </dd>
                 </div>
               </div>
