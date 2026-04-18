@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import ConsentsManager from '@/components/ConsentsManager';
 import { ApiService } from '@/lib/api';
 import { validateUsername } from '@/lib/validation';
@@ -10,6 +11,7 @@ import { validateUsername } from '@/lib/validation';
 export default function DashboardPage() {
   const router = useRouter();
   const { user, accessToken, isLoading, logout, refreshAccessToken } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [usernameError, setUsernameError] = useState('');
@@ -102,8 +104,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <nav className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700/50 sticky top-0 z-10">
+    <div className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-300">
+      <nav className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
@@ -113,7 +115,7 @@ export default function DashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
-                <h1 className="text-base sm:text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Tableau de bord MySSO</h1>
+                <h1 className="text-base sm:text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">Tableau de bord MySSO</h1>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -125,6 +127,21 @@ export default function DashboardPage() {
                   Admin
                 </a>
               )}
+              <button
+                onClick={toggleTheme}
+                title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+                className="p-2 rounded-xl text-gray-400 hover:text-gray-200 bg-gray-700/50 hover:bg-gray-600/50 transition-all duration-200"
+              >
+                {theme === 'dark' ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
               <button
                 onClick={handleLogout}
                 className="ml-3 px-3 py-2 sm:px-6 sm:py-2.5 border border-transparent rounded-xl shadow-lg text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 hover:shadow-xl whitespace-nowrap"
@@ -139,7 +156,7 @@ export default function DashboardPage() {
       <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8 w-full">
         <div className="px-4 py-6 sm:px-0 space-y-6">
           {/* User Information Card */}
-          <div className="bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-700/20 hover:shadow-2xl transition-all duration-300">
+          <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-200/50 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300">
             <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border-b border-gray-700/50">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -264,7 +281,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Session Information Card */}
-          <div className="bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-700/20 hover:shadow-2xl transition-all duration-300">
+          <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-200/50 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300">
             <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-b border-gray-700/50">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -301,7 +318,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Danger Zone Card */}
-          <div className="bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-red-900/40 hover:shadow-2xl transition-all duration-300">
+          <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-red-200/50 dark:border-red-900/40 hover:shadow-2xl transition-all duration-300">
             <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-red-500/10 to-rose-500/10 border-b border-red-900/40">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-rose-700 rounded-xl flex items-center justify-center shadow-lg">
@@ -332,7 +349,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Authorized Applications Card */}
-          <div className="bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-700/20 hover:shadow-2xl transition-all duration-300">
+          <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-200/50 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300">
             <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-b border-gray-700/50">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">

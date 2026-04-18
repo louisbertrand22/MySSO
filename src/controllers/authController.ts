@@ -410,15 +410,15 @@ export class AuthController {
         approved
       } = req.query;
       
-      // 1. Validations de base (inchangé)
+      // 1. Validations de base
       if (!redirect_uri || typeof redirect_uri !== 'string') {
-        res.status(400).json({ error: 'invalid_request', error_description: 'Missing or invalid redirect_uri parameter' });
+        res.redirect(`${config.frontendUrl}/oauth-error?error=invalid_request&error_description=${encodeURIComponent('Paramètre redirect_uri manquant ou invalide')}`);
         return;
       }
 
       const clientId = client_id && typeof client_id === 'string' ? client_id : undefined;
       if (!await AuthCodeService.isRedirectUriAllowed(redirect_uri, clientId)) {
-        res.status(400).json({ error: 'invalid_request', error_description: 'redirect_uri not allowed for this client' });
+        res.redirect(`${config.frontendUrl}/oauth-error?error=invalid_client&error_description=${encodeURIComponent("Cette application n'est pas reconnue ou l'URL de redirection n'est pas autorisée")}`);
         return;
       }
 
