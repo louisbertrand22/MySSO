@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
@@ -16,12 +17,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased flex flex-col min-h-screen">
-        <AuthProvider>
-          <div className="flex-1 flex flex-col">
-            {children}
-          </div>
-          <Footer />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <div className="flex-1 flex flex-col">
+              {children}
+            </div>
+            <Footer />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
