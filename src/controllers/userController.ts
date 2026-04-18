@@ -175,6 +175,57 @@ export class UserController {
   }
 
   /**
+   * PATCH /user/password
+   * Change password with current password verification
+   */
+  static async changePassword(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'unauthorized', error_description: 'User must be authenticated' });
+        return;
+      }
+
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        res.status(400).json({ error: 'invalid_request', error_description: 'currentPassword and newPassword are required' });
+        return;
+      }
+
+      if (newPassword.length < 8) {
+        res.status(400).json({ error: 'invalid_request', error_description: 'Le nouveau mot de passe doit contenir au moins 8 caractères' });
+        return;
+      }
+      if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+        res.status(400).json({ error: 'invalid_request', error_description: 'Le mot de passe doit contenir une majuscule, une minuscule et un chiffre' });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+      if (!user) {
+        res.status(404).json({ error: 'not_found', error_description: 'User not found' });
+        return;
+      }
+
+      const isValid = await AuthService.verifyPassword(currentPassword, user.passwordHash);
+      if (!isValid) {
+        res.status(401).json({ error: 'invalid_password', error_description: 'Mot de passe actuel incorrect' });
+        return;
+      }
+
+      const newHash = await AuthService.hashPassword(newPassword);
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash } });
+
+      SecurityLogger.logPasswordChange(user.id, user.email, req.ip);
+
+      res.json({ message: 'Mot de passe modifié avec succès' });
+    } catch (error) {
+      console.error('Change password error:', error);
+      res.status(500).json({ error: 'server_error', error_description: 'Failed to change password' });
+    }
+  }
+
+  /**
    * DELETE /user/account
    * GDPR-compliant self-serve account deletion with full cascade
    */

@@ -173,6 +173,25 @@ export class ApiService {
   }
 
   /**
+   * Change password
+   */
+  static async changePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<void> {
+    const response = await fetch(`${API_URL}/user/password`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error_description || error.error || 'Failed to change password');
+    }
+  }
+
+  /**
    * Update user profile (username)
    */
   static async updateProfile(accessToken: string, username: string): Promise<{ user: User }> {

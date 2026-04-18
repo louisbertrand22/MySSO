@@ -79,4 +79,8 @@ export class SecurityLogger {
   static logAccountDeletion(userId: string, email: string, ip?: string): void {
     writeLog({ timestamp: new Date().toISOString(), event: 'ACCOUNT_DELETION', userId, email, ip });
   }
+
+  static logPasswordChange(userId: string, email: string, ip?: string): void {
+    writeLog({ timestamp: new Date().toISOString(), event: 'PASSWORD_CHANGE', userId, email, ip });
+  }
 }

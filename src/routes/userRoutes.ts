@@ -108,4 +108,34 @@ router.delete('/user/account', authMiddleware, UserController.deleteAccount);
  */
 router.patch('/user/profile', authMiddleware, UserController.updateProfile);
 
+/**
+ * @swagger
+ * /user/password:
+ *   patch:
+ *     tags: [User]
+ *     summary: Change password
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password changed
+ *       401:
+ *         description: Current password incorrect
+ *       400:
+ *         description: Validation error
+ */
+router.patch('/user/password', authMiddleware, UserController.changePassword);
+
 export default router;
