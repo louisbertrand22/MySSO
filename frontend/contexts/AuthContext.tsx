@@ -119,10 +119,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: 'include',
       });
 
-      if (!response.ok) throw new Error('Login failed');
-      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const err: any = new Error(data.error_description || data.message || data.error || 'Login failed');
+        err.code = data.error;
+        err.email = data.email;
+        throw err;
+      }
+
       const data = await response.json();
-      // Store tokens and set state
       localStorage.setItem('accessToken', data.accessToken);
       setAccessToken(data.accessToken);
       if (data.refreshToken) {
@@ -130,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const userData = ApiService.getUserFromToken(data.accessToken);
       if (userData) setUser(userData);
-      return data; 
+      return data;
     } catch (error) {
       console.error(error);
       throw error;
@@ -138,9 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (credentials: RegisterCredentials) => {
+    // Registration now requires email verification — no auto-login
     await ApiService.register(credentials);
-    // After registration, automatically log in
-    await login(credentials);
   };
 
   const logout = async () => {

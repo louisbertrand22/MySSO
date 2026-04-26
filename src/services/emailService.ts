@@ -14,6 +14,38 @@ function createTransporter() {
 }
 
 export class EmailService {
+  static async sendEmailVerification(email: string, verifyUrl: string): Promise<void> {
+    const transporter = createTransporter();
+
+    const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+        <h2 style="color:#4f46e5">Vérifiez votre adresse e-mail</h2>
+        <p>Merci de vous être inscrit sur MySSO. Cliquez sur le bouton ci-dessous pour activer votre compte.</p>
+        <p>Ce lien expire dans <strong>24 heures</strong>.</p>
+        <a href="${verifyUrl}" style="display:inline-block;margin:16px 0;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">
+          Vérifier mon adresse e-mail
+        </a>
+        <p style="color:#6b7280;font-size:13px">Si vous n'avez pas créé de compte, ignorez cet e-mail.</p>
+        <p style="color:#6b7280;font-size:12px">Lien: ${verifyUrl}</p>
+      </div>
+    `;
+
+    if (!transporter) {
+      console.log('\n[EMAIL — VERIFY EMAIL]');
+      console.log(`To: ${email}`);
+      console.log(`Verify URL: ${verifyUrl}\n`);
+      return;
+    }
+
+    const info = await transporter.sendMail({
+      from: config.smtp.from,
+      to: email,
+      subject: 'Vérifiez votre adresse e-mail MySSO',
+      html,
+    });
+    console.log(`[EMAIL] Sent successfully. messageId=${info.messageId} response=${info.response}`);
+  }
+
   static async sendPasswordReset(email: string, resetUrl: string): Promise<void> {
     const transporter = createTransporter();
 

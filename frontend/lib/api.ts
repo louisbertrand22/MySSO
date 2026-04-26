@@ -193,6 +193,22 @@ export class ApiService {
   }
 
   /**
+   * Resend email verification link
+   */
+  static async resendVerification(email: string): Promise<void> {
+    const response = await fetch(`${API_URL}/auth/resend-verification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error_description || error.error || 'Failed to resend verification');
+    }
+  }
+
+  /**
    * Get active sessions
    */
   static async getSessions(accessToken: string): Promise<SessionsResponse> {

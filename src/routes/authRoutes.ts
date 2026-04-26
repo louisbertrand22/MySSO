@@ -149,6 +149,49 @@ router.post('/auth/forgot-password', AuthController.forgotPassword);
 
 /**
  * @swagger
+ * /auth/verify-email:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Verify email address via token link
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Email verified
+ *       400:
+ *         description: Invalid or expired token
+ */
+router.get('/auth/verify-email', AuthController.verifyEmail);
+
+/**
+ * @swagger
+ * /auth/resend-verification:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Resend email verification link
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Always 200 — link sent if the email is pending verification
+ */
+router.post('/auth/resend-verification', AuthController.resendVerification);
+
+/**
+ * @swagger
  * /auth/reset-password:
  *   post:
  *     tags: [Auth]

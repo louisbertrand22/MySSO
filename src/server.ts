@@ -120,6 +120,14 @@ const tokenLimiter = rateLimit({
   message: { error: 'too_many_requests', error_description: 'Too many token requests, please try again later' },
 });
 
+const resendVerificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Trop de tentatives, réessayez dans une heure' },
+});
+
 /**
  * Health check endpoint
  * GET /health
@@ -167,6 +175,7 @@ app.get('/health', async (_req: Request, res: Response) => {
 app.use('/auth/login', authLimiter);
 app.use('/auth/register', registerLimiter);
 app.use('/auth/forgot-password', forgotPasswordLimiter);
+app.use('/auth/resend-verification', resendVerificationLimiter);
 app.use('/token', tokenLimiter);
 
 // Mount auth routes

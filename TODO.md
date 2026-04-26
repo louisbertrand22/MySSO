@@ -13,7 +13,7 @@
 
 ## Session & Token Management
 
-- [ ] **Active sessions list** — show device, IP, last seen; allow revoking individual sessions from dashboard
+- [x] **Active sessions list** — show device, IP, last seen; allow revoking individual sessions from dashboard
 - [ ] **Refresh token rotation** — invalidate the previous refresh token on every use (already partially in place — verify fully)
 - [ ] **Absolute session TTL** — force re-login after a configurable max lifetime regardless of activity
 - [ ] **Silent refresh** — frontend proactively renews access token before expiry without user interruption

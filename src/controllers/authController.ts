@@ -42,14 +42,32 @@ export class AuthController {
 
       const passwordHash = await AuthService.hashPassword(password);
       const user = await prisma.user.create({
-        data: { email, passwordHash },
-        select: { id: true, email: true, username: true, createdAt: true }
+        data: { email, passwordHash, emailVerified: false },
+        select: { id: true, email: true }
       });
 
-      res.json({ user });
+      // Generate a 24h verification token and send the email
+      const token = crypto.randomBytes(32).toString('hex');
+      await prisma.emailVerificationToken.create({
+        data: { userId: user.id, token, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+      });
+
+      const verifyUrl = `${config.frontendUrl}/verify-email?token=${token}`;
+      try {
+        await EmailService.sendEmailVerification(user.email, verifyUrl);
+      } catch (emailError) {
+        console.error('[REGISTER] Email verification sending failed:', emailError);
+      }
+
+      SecurityLogger.logRegister(user.id, user.email, req.ip);
+
+      res.status(201).json({
+        message: 'Inscription réussie. Vérifiez votre e-mail pour activer votre compte.',
+        email: user.email,
+      });
     } catch (error) {
       console.error('Register error:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Internal server error",
         message: error instanceof Error ? error.message : "Unknown error"
       });
@@ -71,7 +89,10 @@ export class AuthController {
       }
 
       const prisma = AuthService.getPrisma();
-      const user = await prisma.user.findUnique({ where: { email } });
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, email: true, passwordHash: true, isDisabled: true, isAdmin: true, emailVerified: true },
+      });
 
       if (!user || !(await AuthService.verifyPassword(password, user.passwordHash))) {
         SecurityLogger.logLoginFailure(email, req.ip, 'invalid_credentials');
@@ -81,6 +102,15 @@ export class AuthController {
 
       if (user.isDisabled) {
         res.status(403).json({ error: "account_disabled", message: "Your account has been disabled" });
+        return;
+      }
+
+      if (!user.emailVerified) {
+        res.status(403).json({
+          error: "email_not_verified",
+          error_description: "Veuillez vérifier votre adresse e-mail avant de vous connecter.",
+          email: user.email,
+        });
         return;
       }
 
@@ -1047,6 +1077,77 @@ export class AuthController {
       res.json({ message: 'Si cet email est enregistré, un lien de réinitialisation a été envoyé.' });
     } catch (error) {
       console.error('Forgot password error:', error);
+      res.status(500).json({ error: 'server_error', error_description: 'Internal error' });
+    }
+  }
+
+  /**
+   * GET /auth/verify-email?token=xxx
+   * Marks the user's email as verified.
+   */
+  static async verifyEmail(req: Request, res: Response): Promise<void> {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ error: 'invalid_request', error_description: 'Token requis' });
+      return;
+    }
+
+    try {
+      const record = await prisma.emailVerificationToken.findUnique({ where: { token } });
+
+      if (!record || record.expiresAt < new Date()) {
+        res.status(400).json({ error: 'invalid_token', error_description: 'Lien invalide ou expiré' });
+        return;
+      }
+
+      await prisma.$transaction([
+        prisma.user.update({ where: { id: record.userId }, data: { emailVerified: true } }),
+        prisma.emailVerificationToken.delete({ where: { id: record.id } }),
+      ]);
+
+      res.json({ message: 'Adresse e-mail vérifiée avec succès.' });
+    } catch (error) {
+      console.error('Verify email error:', error);
+      res.status(500).json({ error: 'server_error', error_description: 'Internal error' });
+    }
+  }
+
+  /**
+   * POST /auth/resend-verification
+   * Sends a new verification email. Always returns 200.
+   */
+  static async resendVerification(req: Request, res: Response): Promise<void> {
+    const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ error: 'invalid_request', error_description: 'Email requis' });
+      return;
+    }
+
+    try {
+      const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+
+      if (user && !user.emailVerified && !user.isDisabled) {
+        // Remove old tokens and issue a fresh one
+        await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+
+        const token = crypto.randomBytes(32).toString('hex');
+        await prisma.emailVerificationToken.create({
+          data: { userId: user.id, token, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+        });
+
+        const verifyUrl = `${config.frontendUrl}/verify-email?token=${token}`;
+        try {
+          await EmailService.sendEmailVerification(user.email, verifyUrl);
+        } catch (emailError) {
+          console.error('[RESEND VERIFICATION] Email sending failed:', emailError);
+        }
+      }
+
+      res.json({ message: 'Si cet e-mail est en attente de vérification, un nouveau lien a été envoyé.' });
+    } catch (error) {
+      console.error('Resend verification error:', error);
       res.status(500).json({ error: 'server_error', error_description: 'Internal error' });
     }
   }
