@@ -138,4 +138,69 @@ router.patch('/user/profile', authMiddleware, UserController.updateProfile);
  */
 router.patch('/user/password', authMiddleware, UserController.changePassword);
 
+/**
+ * @swagger
+ * /user/sessions:
+ *   get:
+ *     tags: [User]
+ *     summary: List active sessions for the authenticated user
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of active sessions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sessions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       ip:
+ *                         type: string
+ *                       userAgent:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       lastSeenAt:
+ *                         type: string
+ *                         format: date-time
+ *                       expiresAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/user/sessions', authMiddleware, UserController.getSessions);
+
+/**
+ * @swagger
+ * /user/sessions/{sessionId}:
+ *   delete:
+ *     tags: [User]
+ *     summary: Revoke a specific session
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Session revoked
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Session not found
+ */
+router.delete('/user/sessions/:sessionId', authMiddleware, UserController.revokeSession);
+
 export default router;

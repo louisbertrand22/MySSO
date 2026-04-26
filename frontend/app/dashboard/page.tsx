@@ -8,6 +8,27 @@ import ConsentsManager from '@/components/ConsentsManager';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
 import { ApiService } from '@/lib/api';
 import { validateUsername } from '@/lib/validation';
+import type { SessionInfo } from '@/lib/types';
+
+function parseDevice(ua: string | null): { browser: string; os: string } {
+  if (!ua) return { browser: 'Navigateur inconnu', os: 'OS inconnu' };
+  let browser = 'Navigateur inconnu';
+  let os = 'OS inconnu';
+
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = 'Safari';
+  else if (/OPR\/|Opera\//.test(ua)) browser = 'Opera';
+
+  if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Macintosh|Mac OS X/.test(ua)) os = 'macOS';
+  else if (/Linux/.test(ua) && !/Android/.test(ua)) os = 'Linux';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+
+  return { browser, os };
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -21,12 +42,37 @@ export default function DashboardPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [revokingSession, setRevokingSession] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
     }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    setSessionsLoading(true);
+    ApiService.getSessions(accessToken)
+      .then((data) => setSessions(data.sessions))
+      .catch(() => setSessions([]))
+      .finally(() => setSessionsLoading(false));
+  }, [accessToken]);
+
+  const handleRevokeSession = async (sessionId: string) => {
+    if (!accessToken) return;
+    setRevokingSession(sessionId);
+    try {
+      await ApiService.revokeSession(accessToken, sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    } catch {
+      // silent
+    } finally {
+      setRevokingSession(null);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -294,40 +340,68 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Session Information Card */}
+          {/* Active Sessions Card */}
           <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-200/50 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300">
             <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-b border-gray-200 dark:border-gray-700/50">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2" />
                   </svg>
                 </div>
                 <div>
                   <h3 className="text-xl leading-6 font-bold text-gray-900 dark:text-gray-100">
-                    Informations de session
+                    Sessions actives
                   </h3>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Statut de votre session actuelle
+                    Appareils connectés à votre compte
                   </p>
                 </div>
               </div>
             </div>
-            <div className="px-6 py-6 sm:px-8">
-              <div className="flex items-center gap-4 p-4 bg-green-50 dark:bg-gradient-to-r dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl border border-green-200 dark:border-green-700">
-                <div className="flex-shrink-0">
-                  <div className="h-4 w-4 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50"></div>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-green-500 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    Session active
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Vous êtes actuellement connecté</p>
-                </div>
-              </div>
+            <div className="px-6 py-5 sm:px-8">
+              {sessionsLoading ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Chargement...</p>
+              ) : sessions.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Aucune session active.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {sessions.map((session) => {
+                    const { browser, os } = parseDevice(session.userAgent);
+                    return (
+                      <li
+                        key={session.id}
+                        className="flex items-start justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-200 dark:border-gray-600/30"
+                      >
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="mt-0.5 flex-shrink-0 h-3 w-3 rounded-full bg-green-500 shadow shadow-green-500/50 animate-pulse" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                              {browser} · {os}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              IP : {session.ip ?? 'inconnue'}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Connecté le {new Date(session.createdAt).toLocaleString('fr-FR')}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Dernière activité : {new Date(session.lastSeenAt).toLocaleString('fr-FR')}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRevokeSession(session.id)}
+                          disabled={revokingSession === session.id}
+                          className="shrink-0 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-40 transition-colors"
+                        >
+                          {revokingSession === session.id ? '...' : 'Révoquer'}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           </div>
 

@@ -226,6 +226,77 @@ export class UserController {
   }
 
   /**
+   * GET /user/sessions
+   * List all active (non-revoked, non-expired) sessions for the authenticated user
+   */
+  static async getSessions(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'unauthorized', error_description: 'User must be authenticated' });
+        return;
+      }
+
+      const sessions = await prisma.session.findMany({
+        where: {
+          userId: req.user.sub,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { lastSeenAt: 'desc' },
+        select: {
+          id: true,
+          ip: true,
+          userAgent: true,
+          createdAt: true,
+          lastSeenAt: true,
+          expiresAt: true,
+        },
+      });
+
+      res.json({ sessions });
+    } catch (error) {
+      console.error('Get sessions error:', error);
+      res.status(500).json({ error: 'server_error', error_description: 'Failed to retrieve sessions' });
+    }
+  }
+
+  /**
+   * DELETE /user/sessions/:sessionId
+   * Revoke a specific session (and its associated refresh token)
+   */
+  static async revokeSession(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'unauthorized', error_description: 'User must be authenticated' });
+        return;
+      }
+
+      const sessionId = req.params.sessionId as string;
+
+      const session = await prisma.session.findFirst({
+        where: { id: sessionId, userId: req.user.sub, revokedAt: null },
+      });
+
+      if (!session) {
+        res.status(404).json({ error: 'not_found', error_description: 'Session not found' });
+        return;
+      }
+
+      await prisma.$transaction([
+        prisma.session.update({ where: { id: sessionId }, data: { revokedAt: new Date() } }),
+        prisma.refreshToken.deleteMany({ where: { sessionId } }),
+      ]);
+
+      SecurityLogger.logSessionRevocation(req.user.sub, sessionId, 'user_revoked');
+
+      res.json({ message: 'Session révoquée avec succès' });
+    } catch (error) {
+      console.error('Revoke session error:', error);
+      res.status(500).json({ error: 'server_error', error_description: 'Failed to revoke session' });
+    }
+  }
+
+  /**
    * DELETE /user/account
    * GDPR-compliant self-serve account deletion with full cascade
    */

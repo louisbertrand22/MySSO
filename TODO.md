@@ -9,7 +9,7 @@
 - [ ] **Social login** — OAuth2 login via GitHub / Google as identity providers
 - [ ] **Account lockout policy** — lock account after N failed attempts, auto-unlock after delay
 - [ ] **Password strength enforcement** — min entropy check on register and password change
-- [ ] **Change password** — authenticated endpoint + UI in dashboard
+- [x] **Change password** — authenticated endpoint + UI in dashboard
 
 ## Session & Token Management
 

@@ -49,16 +49,14 @@ export class AuthService {
 
   /**
    * Generate both access and refresh tokens for a user
-   * Also creates a session in the database for tracking
-   * @param userId - User ID
-   * @param email - User email (optional, included in access token)
-   * @param scopes - Optional array of scopes to include in the access token
-   * @returns Object containing accessToken and refreshToken
+   * Creates a new session or updates an existing one (on token refresh).
    */
-  static async generateTokens(userId: string, email?: string, scopes?: string[]): Promise<{
-    accessToken: string
-    refreshToken: string
-  }> {
+  static async generateTokens(
+    userId: string,
+    email?: string,
+    scopes?: string[],
+    options?: { ip?: string; userAgent?: string; existingSessionId?: string }
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     // Fetch user to get createdAt timestamp
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -102,20 +100,35 @@ export class AuthService {
       { expiresIn: "90d" }
     )
 
-    // Store refresh token in database
+    const sessionExpiry = new Date(Date.now() + 90 * 24 * 3600 * 1000);
+
+    let sessionId: string;
+    if (options?.existingSessionId) {
+      // Refresh flow: update lastSeenAt on the existing session instead of creating a new one
+      await prisma.session.update({
+        where: { id: options.existingSessionId },
+        data: { lastSeenAt: new Date(), expiresAt: sessionExpiry },
+      });
+      sessionId = options.existingSessionId;
+    } else {
+      const session = await prisma.session.create({
+        data: {
+          userId,
+          ip: options?.ip,
+          userAgent: options?.userAgent,
+          expiresAt: sessionExpiry,
+        },
+      });
+      sessionId = session.id;
+    }
+
+    // Store refresh token linked to the session
     await prisma.refreshToken.create({
       data: {
         userId,
         token: refreshToken,
-        expiresAt: new Date(Date.now() + 90 * 24 * 3600 * 1000), // 90 days
-      },
-    })
-
-    // Create a session for tracking
-    await prisma.session.create({
-      data: {
-        userId,
-        expiresAt: new Date(Date.now() + 90 * 24 * 3600 * 1000), // 90 days (same as refresh token)
+        sessionId,
+        expiresAt: sessionExpiry,
       },
     })
 

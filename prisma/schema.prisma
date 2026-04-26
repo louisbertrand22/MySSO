@@ -40,18 +40,24 @@ model PasswordResetToken {
 }
 
 model Session {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  createdAt DateTime  @default(now())
-  expiresAt DateTime
-  revokedAt DateTime?
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  ip            String?
+  userAgent     String?
+  lastSeenAt    DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  refreshTokens RefreshToken[]
 }
 
 model RefreshToken {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  sessionId String?
+  session   Session? @relation(fields: [sessionId], references: [id])
   token     String   @unique
   createdAt DateTime @default(now())
   expiresAt DateTime

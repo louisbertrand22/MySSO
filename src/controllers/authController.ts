@@ -88,7 +88,8 @@ export class AuthController {
       const { accessToken, refreshToken } = await AuthService.generateTokens(
         user.id,
         user.email,
-        scopes
+        scopes,
+        { ip: req.ip, userAgent: req.get('user-agent') }
       );
 
       res.cookie('accessToken', accessToken, {
@@ -199,6 +200,9 @@ export class AuthController {
         return;
       }
 
+      // Capture sessionId before deleting the old token
+      const existingSessionId = stored.sessionId ?? undefined;
+
       // Token rotation: Delete the old refresh token
       await prisma.refreshToken.delete({ where: { token: refreshToken } });
 
@@ -213,7 +217,11 @@ export class AuthController {
       }
       const refreshScopes = refreshedUser?.isAdmin ? ['admin'] : undefined;
       const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
-        await AuthService.generateTokens(stored.userId, stored.user.email, refreshScopes);
+        await AuthService.generateTokens(stored.userId, stored.user.email, refreshScopes, {
+          existingSessionId,
+          ip: req.ip,
+          userAgent: req.get('user-agent'),
+        });
       
       // Set new refresh token as HttpOnly cookie
       res.cookie('refreshToken', newRefreshToken, {
@@ -255,10 +263,10 @@ export class AuthController {
 
       const prisma = AuthService.getPrisma();
       
-      // Find the refresh token to get the user ID
+      // Find the refresh token to get the user ID and associated session
       const stored = await prisma.refreshToken.findUnique({
         where: { token: refreshToken },
-        select: { userId: true }
+        select: { userId: true, sessionId: true }
       });
 
       if (!stored) {
@@ -302,30 +310,33 @@ export class AuthController {
       }
 
       // Otherwise, just delete the specific refresh token and revoke associated session
-      await prisma.refreshToken.delete({ 
-        where: { token: refreshToken } 
+      await prisma.refreshToken.delete({
+        where: { token: refreshToken }
       }).catch(() => {
         // Ignore error if token doesn't exist
       });
 
-      // Revoke the current session (most recent session for this user)
-      // We revoke the most recent non-revoked session
-      const sessions = await prisma.session.findMany({
-        where: { 
-          userId,
-          revokedAt: null
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 1
-      });
-
-      if (sessions.length > 0) {
+      // Revoke the session linked to this refresh token
+      if (stored.sessionId) {
         await prisma.session.update({
-          where: { id: sessions[0].id },
-          data: { revokedAt: new Date() }
+          where: { id: stored.sessionId },
+          data: { revokedAt: new Date() },
         });
-
-        SecurityLogger.logSessionRevocation(userId, sessions[0].id, 'single');
+        SecurityLogger.logSessionRevocation(userId, stored.sessionId, 'single');
+      } else {
+        // Fallback for legacy tokens without sessionId: revoke most recent session
+        const sessions = await prisma.session.findMany({
+          where: { userId, revokedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        });
+        if (sessions.length > 0) {
+          await prisma.session.update({
+            where: { id: sessions[0].id },
+            data: { revokedAt: new Date() },
+          });
+          SecurityLogger.logSessionRevocation(userId, sessions[0].id, 'single');
+        }
       }
 
       // Clear cookie

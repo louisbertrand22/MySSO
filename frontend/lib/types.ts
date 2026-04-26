@@ -19,6 +19,19 @@ export interface ConsentsResponse {
   total: number;
 }
 
+export interface SessionInfo {
+  id: string;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+}
+
+export interface SessionsResponse {
+  sessions: SessionInfo[];
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;

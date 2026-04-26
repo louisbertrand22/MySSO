@@ -1,10 +1,11 @@
-import { 
-  LoginCredentials, 
-  RegisterCredentials, 
-  AuthResponse, 
+import {
+  LoginCredentials,
+  RegisterCredentials,
+  AuthResponse,
   RegisterResponse,
   ConsentsResponse,
-  User 
+  SessionsResponse,
+  User
 } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -188,6 +189,37 @@ export class ApiService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error_description || error.error || 'Failed to change password');
+    }
+  }
+
+  /**
+   * Get active sessions
+   */
+  static async getSessions(accessToken: string): Promise<SessionsResponse> {
+    const response = await fetch(`${API_URL}/user/sessions`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get sessions');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Revoke a specific session
+   */
+  static async revokeSession(accessToken: string, sessionId: string): Promise<void> {
+    const response = await fetch(`${API_URL}/user/sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to revoke session');
     }
   }
 
