@@ -54,6 +54,11 @@ function LoginContent() {
 
         <div className="mt-8 bg-gray-800 py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
           <AuthForm mode="login" onSubmit={handleSubmit} error={error} />
+          <div className="mt-4 text-center">
+            <Link href="/forgot-password" className="text-sm text-indigo-400 hover:text-indigo-300">
+              Mot de passe oublié ?
+            </Link>
+          </div>
         </div>
       </div>
     </div>
