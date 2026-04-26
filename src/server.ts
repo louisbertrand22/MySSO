@@ -104,6 +104,14 @@ const registerLimiter = rateLimit({
   message: { error: 'too_many_requests', error_description: 'Too many registration attempts, please try again later' },
 });
 
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,                    // 3 attempts per IP per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Trop de demandes de réinitialisation, réessayez dans une heure' },
+});
+
 const tokenLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 30,
@@ -158,6 +166,7 @@ app.get('/health', async (_req: Request, res: Response) => {
 // Apply rate limiters to sensitive auth endpoints before mounting routes
 app.use('/auth/login', authLimiter);
 app.use('/auth/register', registerLimiter);
+app.use('/auth/forgot-password', forgotPasswordLimiter);
 app.use('/token', tokenLimiter);
 
 // Mount auth routes

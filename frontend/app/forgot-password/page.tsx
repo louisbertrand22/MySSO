@@ -21,6 +21,9 @@ export default function ForgotPasswordPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
+      if (res.status === 429) {
+        throw new Error('Trop de tentatives. Réessayez dans une heure.');
+      }
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error_description || 'Erreur serveur');
