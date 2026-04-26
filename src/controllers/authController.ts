@@ -24,7 +24,8 @@ export class AuthController {
    */
   static async register(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password } = req.body;
+      const { password } = req.body;
+      const email = typeof req.body.email === 'string' ? req.body.email.toLowerCase().trim() : '';
 
       if (!email || !password) {
         res.status(400).json({ error: "Email and password are required" });
@@ -33,14 +34,14 @@ export class AuthController {
 
       const prisma = AuthService.getPrisma();
       const existing = await prisma.user.findUnique({ where: { email } });
-      
+
       if (existing) {
         res.status(400).json({ error: "User already exists" });
         return;
       }
 
       const passwordHash = await AuthService.hashPassword(password);
-      const user = await prisma.user.create({ 
+      const user = await prisma.user.create({
         data: { email, passwordHash },
         select: { id: true, email: true, username: true, createdAt: true }
       });
@@ -61,7 +62,8 @@ export class AuthController {
    */
   static async login(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password } = req.body;
+      const { password } = req.body;
+      const email = typeof req.body.email === 'string' ? req.body.email.toLowerCase().trim() : '';
 
       if (!email || !password) {
         res.status(400).json({ error: "Email and password are required" });
