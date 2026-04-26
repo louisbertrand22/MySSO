@@ -1024,7 +1024,12 @@ export class AuthController {
         });
 
         const resetUrl = `${config.frontendUrl}/reset-password?token=${token}`;
-        await EmailService.sendPasswordReset(user.email, resetUrl);
+        try {
+          await EmailService.sendPasswordReset(user.email, resetUrl);
+        } catch (emailError) {
+          // Log the real SMTP error but don't expose it to the client
+          console.error('[FORGOT PASSWORD] Email sending failed:', emailError);
+        }
       }
 
       // Always return 200 — never reveal whether the email exists

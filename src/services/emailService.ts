@@ -8,12 +8,16 @@ function createTransporter() {
     port: config.smtp.port,
     secure: config.smtp.port === 465,
     auth: { user: config.smtp.user, pass: config.smtp.pass },
+    logger: false,
+    debug: false,
   });
 }
 
 export class EmailService {
   static async sendPasswordReset(email: string, resetUrl: string): Promise<void> {
     const transporter = createTransporter();
+
+    console.log(`[EMAIL] SMTP configured: ${!!config.smtp.host}, from: ${config.smtp.from}, to: ${email}`);
 
     const html = `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
@@ -36,11 +40,12 @@ export class EmailService {
       return;
     }
 
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: config.smtp.from,
       to: email,
       subject: 'Réinitialisation de votre mot de passe MySSO',
       html,
     });
+    console.log(`[EMAIL] Sent successfully. messageId=${info.messageId} response=${info.response}`);
   }
 }
