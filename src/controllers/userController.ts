@@ -287,7 +287,7 @@ export class UserController {
         prisma.refreshToken.deleteMany({ where: { sessionId } }),
       ]);
 
-      SecurityLogger.logSessionRevocation(req.user.sub, sessionId, 'user_revoked');
+      SecurityLogger.logSessionRevocation(req.user.sub, sessionId, 'single');
 
       res.json({ message: 'Session révoquée avec succès' });
     } catch (error) {
