@@ -83,6 +83,11 @@ Custom Single Sign-On (SSO) implementation with OpenID Connect and OAuth2 suppor
    npm run prisma:migrate
    ```
    Note: `prisma generate` is automatically run during `npm install`, so you only need to run migrations.
+
+   ```bash
+   npx prisma migrate reset
+   npx prisma db push
+   ```
    
    To view and manage your database, you can run:
    ```bash
