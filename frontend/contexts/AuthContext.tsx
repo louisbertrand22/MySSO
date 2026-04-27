@@ -121,10 +121,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        const err: any = new Error(data.error_description || data.message || data.error || 'Login failed');
-        err.code = data.error;
-        err.email = data.email;
-        throw err;
+        // Throw a plain object instead of an Error instance so callers can
+        // inspect the shape without a noisy JS Error stack appearing in the
+        // dev console for expected API errors (like email_not_verified).
+        const errObj: { message: string; code?: string; email?: string } = {
+          message: data.error_description || data.message || data.error || 'Login failed',
+          code: data.error,
+          email: data.email,
+        };
+        throw errObj;
       }
 
       const data = await response.json();
