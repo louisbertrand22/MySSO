@@ -33,9 +33,53 @@ function LoginContent() {
       } else {
         router.push(safeRedirect!);
       }
-    } catch (err: any) {
-      if (err?.code === 'email_not_verified') {
-        setUnverifiedEmail(err.email || email);
+  } catch (err: unknown) {
+      // Backend sometimes returns a thrown object with { error: 'email_not_verified', email }
+      // AuthContext.login currently re-throws the parsed error which may be an Error with
+      // attached fields or a plain object. Be defensive and support several shapes.
+      let code: string | undefined;
+      let emailFromErr: string | undefined;
+
+      if (!err) {
+        setError('Login failed');
+        return;
+      }
+
+      // If it's an Error instance with extra properties
+      if (err instanceof Error) {
+        // try direct properties first (narrow unknown -> record safely)
+        const asObj = err as unknown as Record<string, unknown>;
+        code = (asObj['code'] as string | undefined) || (asObj['error'] as string | undefined);
+        emailFromErr = asObj['email'] as string | undefined;
+
+        // Some errors may have a JSON string in message (e.g. thrown from fetch). Try to parse it.
+        if (!code) {
+          try {
+            const parsed = JSON.parse(err.message);
+            code = parsed?.error || parsed?.code;
+            emailFromErr = parsed?.email;
+          } catch {}
+        }
+      } else if (typeof err === 'object' && err !== null) {
+        // Plain object thrown
+        const obj = err as Record<string, unknown>;
+        code = (obj['code'] as string | undefined) || (obj['error'] as string | undefined);
+        emailFromErr = obj['email'] as string | undefined;
+      } else if (typeof err === 'string') {
+        // Might be a JSON string
+        try {
+          const parsed = JSON.parse(err);
+          code = parsed?.error || parsed?.code;
+          emailFromErr = parsed?.email;
+        } catch {
+            // fallback to string message
+            setError(err);
+          return;
+        }
+      }
+
+      if (code === 'email_not_verified') {
+        setUnverifiedEmail(emailFromErr || email);
       } else {
         setError(err instanceof Error ? err.message : 'Login failed');
       }
@@ -68,9 +112,9 @@ function LoginContent() {
             Se connecter à MySSO
           </h2>
           <p className="mt-2 text-center text-sm text-gray-300">
-            Vous n'avez pas de compte ?{' '}
+            Vous n&apos;avez pas de compte ?{' '}
             <Link href={registerHref} className="font-medium text-indigo-400 hover:text-indigo-300">
-              S'inscrire pour un compte gratuit
+                S&apos;inscrire pour un compte gratuit
             </Link>
           </p>
         </div>
@@ -87,7 +131,7 @@ function LoginContent() {
               <p className="text-sm text-gray-400">
                 Vérifiez votre boîte mail pour{' '}
                 <span className="text-white">{unverifiedEmail}</span>{' '}
-                et cliquez sur le lien d'activation.
+                et cliquez sur le lien d&apos;activation.
               </p>
               {resendDone ? (
                 <p className="text-sm text-green-400">Un nouveau lien a été envoyé.</p>
