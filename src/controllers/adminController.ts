@@ -316,6 +316,43 @@ export class AdminController {
     }
   }
 
+  // ─── System Settings ──────────────────────────────────────────────────────
+
+  static async getSettings(_req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const prisma = AuthService.getPrisma();
+      const rows = await prisma.systemSetting.findMany();
+      const settings: Record<string, string> = {};
+      for (const row of rows) settings[row.key] = row.value;
+      const requireEmailVerification = settings['requireEmailVerification'] === 'true';
+      res.json({ requireEmailVerification });
+    } catch (error) {
+      console.error('Get settings error:', error);
+      res.status(500).json({ error: 'server_error', message: 'Failed to get settings' });
+    }
+  }
+
+  static async updateSettings(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const prisma = AuthService.getPrisma();
+      const { requireEmailVerification } = req.body;
+      if (typeof requireEmailVerification !== 'boolean') {
+        res.status(400).json({ error: 'invalid_input', message: 'requireEmailVerification must be a boolean' });
+        return;
+      }
+      await prisma.systemSetting.upsert({
+        where: { key: 'requireEmailVerification' },
+        update: { value: String(requireEmailVerification) },
+        create: { key: 'requireEmailVerification', value: String(requireEmailVerification) },
+      });
+      SecurityLogger.logAdminAction(req.user!.sub, 'UPDATE_SETTINGS', `requireEmailVerification=${requireEmailVerification}`);
+      res.json({ requireEmailVerification });
+    } catch (error) {
+      console.error('Update settings error:', error);
+      res.status(500).json({ error: 'server_error', message: 'Failed to update settings' });
+    }
+  }
+
   // ─── Audit Log ────────────────────────────────────────────────────────────
 
   static async getAuditLogs(req: Request, res: Response): Promise<void> {

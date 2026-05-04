@@ -13,6 +13,11 @@ import { EmailService } from '../services/emailService';
 import { prisma } from '../services/authService';
 import { HashService } from '../services/hashService';
 
+async function isEmailVerificationRequired(): Promise<boolean> {
+  const row = await prisma.systemSetting.findUnique({ where: { key: 'requireEmailVerification' } });
+  return row?.value === 'true';
+}
+
 /**
  * Auth Controller
  * Handles OAuth2/OpenID Connect authentication endpoints and API auth routes
@@ -40,30 +45,34 @@ export class AuthController {
         return;
       }
 
+      const requireVerification = await isEmailVerificationRequired();
       const passwordHash = await AuthService.hashPassword(password);
       const user = await prisma.user.create({
-        data: { email, passwordHash, emailVerified: false },
+        data: { email, passwordHash, emailVerified: !requireVerification },
         select: { id: true, email: true }
       });
 
-      // Generate a 24h verification token and send the email
-      const token = crypto.randomBytes(32).toString('hex');
-      await prisma.emailVerificationToken.create({
-        data: { userId: user.id, token, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
-      });
-
-      const verifyUrl = `${config.frontendUrl}/verify-email?token=${token}`;
-      try {
-        await EmailService.sendEmailVerification(user.email, verifyUrl);
-      } catch (emailError) {
-        console.error('[REGISTER] Email verification sending failed:', emailError);
+      if (requireVerification) {
+        const token = crypto.randomBytes(32).toString('hex');
+        await prisma.emailVerificationToken.create({
+          data: { userId: user.id, token, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+        });
+        const verifyUrl = `${config.frontendUrl}/verify-email?token=${token}`;
+        try {
+          await EmailService.sendEmailVerification(user.email, verifyUrl);
+        } catch (emailError) {
+          console.error('[REGISTER] Email verification sending failed:', emailError);
+        }
       }
 
       SecurityLogger.logRegister(user.id, user.email, req.ip);
 
       res.status(201).json({
-        message: 'Inscription réussie. Vérifiez votre e-mail pour activer votre compte.',
+        message: requireVerification
+          ? 'Inscription réussie. Vérifiez votre e-mail pour activer votre compte.'
+          : 'Inscription réussie.',
         email: user.email,
+        requireEmailVerification: requireVerification,
       });
     } catch (error) {
       console.error('Register error:', error);
@@ -105,7 +114,7 @@ export class AuthController {
         return;
       }
 
-      if (!user.emailVerified) {
+      if (!user.emailVerified && await isEmailVerificationRequired()) {
         res.status(403).json({
           error: "email_not_verified",
           error_description: "Veuillez vérifier votre adresse e-mail avant de vous connecter.",

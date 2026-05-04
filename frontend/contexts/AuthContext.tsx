@@ -2,14 +2,14 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ApiService } from '@/lib/api';
-import { User, LoginCredentials, RegisterCredentials } from '@/lib/types';
+import { User, LoginCredentials, RegisterCredentials, RegisterResponse } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
   accessToken: string | null;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
-  register: (credentials: RegisterCredentials) => Promise<void>;
+  register: (credentials: RegisterCredentials) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
   setTokens: (accessToken: string, refreshToken: string) => void;
@@ -148,8 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (credentials: RegisterCredentials) => {
-    // Registration now requires email verification — no auto-login
-    await ApiService.register(credentials);
+    return ApiService.register(credentials);
   };
 
   const logout = async () => {

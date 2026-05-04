@@ -1,13 +1,14 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthForm from '@/components/AuthForm';
 
 function RegisterContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { register } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
@@ -23,8 +24,12 @@ function RegisterContent() {
   const handleSubmit = async (email: string, password: string) => {
     setError(null);
     try {
-      await register({ email, password });
-      setVerificationEmail(email);
+      const result = await register({ email, password });
+      if (result.requireEmailVerification) {
+        setVerificationEmail(email);
+      } else {
+        router.push(loginHref);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue lors de l\'inscription');
     }

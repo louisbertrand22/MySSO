@@ -100,6 +100,16 @@ export const AdminApi = {
   deleteScope: (token: string, id: string) =>
     adminFetch<{ message: string }>(`/admin/scopes/${id}`, token, { method: 'DELETE' }),
 
+  // Settings
+  getSettings: (token: string) =>
+    adminFetch<{ requireEmailVerification: boolean }>('/admin/settings', token),
+
+  updateSettings: (token: string, settings: { requireEmailVerification: boolean }) =>
+    adminFetch<{ requireEmailVerification: boolean }>('/admin/settings', token, {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    }),
+
   // Audit logs
   getAuditLogs: (token: string, params: { page?: number; limit?: number; event?: string; userId?: string } = {}) => {
     const qs = new URLSearchParams();

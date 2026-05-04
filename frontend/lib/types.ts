@@ -53,7 +53,9 @@ export interface AuthResponse {
 }
 
 export interface RegisterResponse {
-  user: User;
+  message: string;
+  email: string;
+  requireEmailVerification: boolean;
 }
 
 export interface ApiError {

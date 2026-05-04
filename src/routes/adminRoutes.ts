@@ -391,4 +391,7 @@ router.delete('/admin/scopes/:id', authMiddleware, requireScope('admin'), AdminC
  */
 router.get('/admin/audit-logs', authMiddleware, requireScope('admin'), AdminController.getAuditLogs);
 
+router.get('/admin/settings', authMiddleware, requireScope('admin'), AdminController.getSettings);
+router.patch('/admin/settings', authMiddleware, requireScope('admin'), AdminController.updateSettings);
+
 export default router;

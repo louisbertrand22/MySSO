@@ -10,7 +10,9 @@
       "Bash(node -e \"const p=require\\(''./package.json''\\); console.log\\(''next:'', p.dependencies.next, ''\\\\neslint-config-next:'', p.devDependencies[''eslint-config-next'']\\)\")",
       "Bash(npx tsc:*)",
       "Bash(npx prisma:*)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(docker compose *)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"en local tu peux reset\" npx prisma migrate reset --force)"
     ]
   }
 }
