@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Architecture MySSO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F4F5F7; --surface:#FFFFFF; --surface-2:#EAEBEF;
+  --ink:#191B22; --ink-2:#393D4A; --muted:#606474;
+  --line:#D6D8DF; --line-strong:#9C9FAD;
+  --accent:#4338CA; --accent-ink:#3730A3; --acc-soft:#E8E7FB;
+  --danger:#B8342A; --danger-soft:#FBEAE7;
+  --display:"Archivo","Segoe UI",system-ui,sans-serif;
+  --body:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F1014; --surface:#16171D; --surface-2:#202229;
+    --ink:#E8E9EE; --ink-2:#C4C6D0; --muted:#8C8F9C;
+    --line:#2B2D36; --line-strong:#565A68;
+    --accent:#8B8CF6; --accent-ink:#B4B5FA; --acc-soft:#1E1D3A;
+    --danger:#F07F72; --danger-soft:#2C1917;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1014; --surface:#16171D; --surface-2:#202229;
+  --ink:#E8E9EE; --ink-2:#C4C6D0; --muted:#8C8F9C;
+  --line:#2B2D36; --line-strong:#565A68;
+  --accent:#8B8CF6; --accent-ink:#B4B5FA; --acc-soft:#1E1D3A;
+  --danger:#F07F72; --danger-soft:#2C1917;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--body);-webkit-font-smoothing:antialiased;margin:0}
+.wrap{max-width:1160px;margin:0 auto;padding-inline:24px;padding-block:40px 96px}
+@media (max-width:600px){.wrap{padding-inline:16px;padding-block:28px 72px}}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;letter-spacing:-.01em;margin:0}
+h1{font-size:clamp(32px,5vw,48px);line-height:1.08;font-weight:700}
+h2{font-size:clamp(24px,3vw,30px);line-height:1.2;font-weight:700}
+h3{font-size:18px;line-height:1.3;font-weight:600}
+p{margin:0}
+a{color:var(--accent-ink)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.prose{max-width:72ch;display:flex;flex-direction:column;gap:14px}
+.muted{color:var(--muted)}
+
+/* header */
+header.top{display:flex;flex-direction:column;gap:18px;padding-bottom:28px}
+.lede{font-size:17px;line-height:1.65;max-width:70ch;color:var(--ink-2)}
+.meta{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.spec{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:6px 0 0}
+.spec div{padding:12px 14px 12px 0;display:flex;flex-direction:column;gap:2px}
+.spec dt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.spec dd{margin:0;font-weight:600;font-size:14.5px}
+.spec dd.acc{color:var(--accent-ink)}
+
+/* nav */
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-4px;padding:10px 4px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+nav.toc a{flex:0 0 auto;font-family:var(--mono);font-size:12.5px;text-decoration:none;color:var(--ink-2);padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+nav.toc a:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+/* sections */
+main{display:flex;flex-direction:column;gap:64px;padding-top:40px}
+section{display:flex;flex-direction:column;gap:18px;scroll-margin-top:64px}
+.sec-head{display:flex;flex-direction:column;gap:6px}
+
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px 28px;margin:0;padding:0;list-style:none}
+.rules li{padding:14px 0 0;border-top:2px solid var(--ink);display:flex;flex-direction:column;gap:4px}
+.rules b{font-family:var(--display);font-weight:600;font-size:16px}
+.rules span{color:var(--ink-2);font-size:14.5px}
+
+/* figures */
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px 20px 16px;display:flex;flex-direction:column;gap:12px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+figure svg{display:block;width:100%;height:auto}
+figcaption{font-size:13.5px;color:var(--muted);max-width:90ch;line-height:1.55}
+figcaption b{color:var(--ink-2)}
+@media (max-width:600px){figure{padding:14px 12px 12px}}
+
+/* svg diagram tokens */
+.dg text{font-family:var(--mono)}
+.dg .zone{fill:none;stroke:var(--line-strong);stroke-width:1;stroke-dasharray:3 4}
+.dg .zl{fill:var(--muted);font-size:11px;letter-spacing:.1em;font-weight:600}
+.dg .bx{fill:var(--bg);stroke:var(--line-strong);stroke-width:1.2}
+.dg .bxa{fill:var(--acc-soft);stroke:var(--accent);stroke-width:1.6}
+.dg .bxd{fill:var(--danger-soft);stroke:var(--danger);stroke-width:1.4}
+.dg .t{fill:var(--ink);font-family:var(--body);font-size:13.5px;font-weight:600}
+.dg .ta{fill:var(--accent-ink)}
+.dg .td{fill:var(--danger)}
+.dg .s{fill:var(--muted);font-size:11px}
+.dg .e{fill:none;stroke:var(--ink-2);stroke-width:1.4}
+.dg .er{fill:none;stroke:var(--ink-2);stroke-width:1.3;stroke-dasharray:5 4}
+.dg .ea{fill:none;stroke:var(--accent);stroke-width:2.4}
+.dg .ll{stroke:var(--line-strong);stroke-width:1;stroke-dasharray:2 4}
+.dg .el{fill:var(--ink-2);font-size:11px;paint-order:stroke;stroke:var(--surface);stroke-width:5px;stroke-linejoin:round}
+.dg .ela{fill:var(--accent-ink);font-weight:600}
+.dg .eld{fill:var(--danger);font-weight:600}
+.dg .mk{fill:var(--ink-2)}
+.dg .mka{fill:var(--accent)}
+
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:600;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface-2);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.num,th.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+td.k{font-weight:600;white-space:nowrap}
+#securite td:last-child,#attention td:last-child{white-space:nowrap}
+tr.group td{background:var(--bg);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;padding-block:8px}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-2);white-space:nowrap}
+.pill.no{border-color:var(--danger);color:var(--danger)}
+.pill.yes{border-color:var(--accent);color:var(--accent-ink)}
+
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px 32px}
+.callout{border-left:3px solid var(--accent);padding:4px 0 4px 16px;max-width:72ch;color:var(--ink-2)}
+.callout b{color:var(--ink)}
+.callout.warn{border-left-color:var(--danger)}
+ul.plain{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;max-width:80ch}
+ul.plain li::marker{color:var(--muted)}
+footer{margin-top:72px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion: no-preference){html{scroll-behavior:smooth}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">MySSO · architecture technique</div>
+  <h1>Architecture de MySSO</h1>
+  <p class="lede">Un fournisseur d'identité OAuth 2.0 / OpenID Connect maison. Un backend Express unique émet et vérifie tous les jetons, signés en RS256 avec une clé RSA locale. Un frontend Next.js porte les écrans que l'utilisateur voit : connexion, consentement, tableau de bord et console d'administration. PostgreSQL, via Prisma, est la seule source de vérité : sessions, codes d'autorisation, consentements et journal d'audit y vivent tous.</p>
+  <p class="meta">Relevé dans le code · branche main (71fbb42) · v3.4.0 · 20 octobre 2026</p>
+  <dl class="spec">
+    <div><dt>Backend</dt><dd>Express 4 · TypeScript</dd></div>
+    <div><dt>Frontend</dt><dd>Next.js 16 · React 19</dd></div>
+    <div><dt>Base de données</dt><dd class="acc">PostgreSQL · Prisma 6</dd></div>
+    <div><dt>Protocole</dt><dd class="acc">OIDC · code + PKCE</dd></div>
+    <div><dt>Signature</dt><dd>RS256 · JWKS</dd></div>
+    <div><dt>Hébergement</dt><dd>Render · Supabase</dd></div>
+  </dl>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <a href="#vue">Vue d'ensemble</a>
+  <a href="#oidc">Flux OIDC</a>
+  <a href="#jetons">Jetons et sessions</a>
+  <a href="#donnees">Données</a>
+  <a href="#api">API</a>
+  <a href="#frontend">Frontend</a>
+  <a href="#securite">Sécurité</a>
+  <a href="#attention">Points d'attention</a>
+  <a href="#cicd">CI et déploiement</a>
+  <a href="#stack">Stack complète</a>
+</nav>
+
+<main>
+
+<!-- ───────────── Vue d'ensemble ───────────── -->
+<section id="vue">
+  <div class="sec-head">
+    <div class="eyebrow">Vue d'ensemble</div>
+    <h2>Qui parle à qui</h2>
+  </div>
+
+  <ul class="rules">
+    <li><b>Un seul émetteur de jetons</b><span>Seul le backend Express signe des JWT. La clé privée ne quitte jamais <code>keys/private.pem</code> ; la clé publique est publiée sur <code>/jwks.json</code>.</span></li>
+    <li><b>Le frontend n'a pas de logique d'auth</b><span>Les pages Next.js appellent l'API avec <code>fetch</code>. Toute décision (mot de passe, consentement, émission de code) se prend côté Express.</span></li>
+    <li><b>Une base, aucune donnée en mémoire</b><span>Codes d'autorisation, refresh tokens, sessions et consentements sont en base. Le serveur est sans état, à part les compteurs de rate limit.</span></li>
+    <li><b>Les applis clientes sont déclarées</b><span>Chaque <code>Client</code> a une liste de <code>redirectUris</code> et de scopes autorisés. Une redirection hors liste est refusée avant même la connexion.</span></li>
+    <li><b>Les admins sont un scope</b><span>Un utilisateur <code>isAdmin</code> reçoit le scope <code>admin</code> dans son access token ; <code>requireScope('admin')</code> protège tout <code>/admin/*</code>.</span></li>
+    <li><b>Tout est tracé</b><span><code>SecurityLogger</code> écrit chaque événement sensible dans <code>logs/security.log</code> et dans la table <code>AuditLog</code>, lue par la console admin.</span></li>
+  </ul>
+
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 1120 570" style="min-width:900px" role="img" aria-label="Architecture globale : les applications clientes, le navigateur et le frontend MySSO envoient leurs requêtes au backend Express hébergé sur Render. Chaque requête traverse helmet, CORS, le rate limiting et les parsers, puis l'un des cinq groupes de routes. Les routes utilisent PostgreSQL via Prisma, les clés RSA du dossier keys, le journal de sécurité et un serveur SMTP.">
+      <defs>
+        <marker id="f1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="mk" d="M0,1 L10,5 L0,9 z"/></marker>
+        <marker id="f1-aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="mka" d="M0,1 L10,5 L0,9 z"/></marker>
+      </defs>
+
+      <!-- CLIENTS -->
+      <rect class="zone" x="20" y="20" width="1080" height="124" rx="10"/>
+      <text class="zl" x="34" y="38">CLIENTS</text>
+      <rect class="bx" x="40" y="48" width="320" height="82" rx="8"/>
+      <text class="t" x="54" y="70">Applis clientes OIDC</text>
+      <text class="s" x="54" y="90">MyLife · WatchAsset · MagicCards (dev)</text>
+      <text class="s" x="54" y="106">client_id · PKCE · redirect_uri déclarée</text>
+      <text class="s" x="54" y="122">vérifient les JWT via /jwks.json</text>
+
+      <rect class="bx" x="400" y="48" width="280" height="82" rx="8"/>
+      <text class="t" x="414" y="70">Navigateur</text>
+      <text class="s" x="414" y="90">utilisateur final</text>
+      <text class="s" x="414" y="106">suit les 302 de /authorize</text>
+      <text class="s" x="414" y="122">cookies accessToken · refreshToken</text>
+
+      <rect class="bxa" x="720" y="48" width="360" height="82" rx="8"/>
+      <text class="t ta" x="734" y="70">Frontend MySSO</text>
+      <text class="s" x="734" y="90">Next.js 16 · React 19 · Tailwind 4</text>
+      <text class="s" x="734" y="106">login · consent · dashboard · admin</text>
+      <text class="s" x="734" y="122">NEXT_PUBLIC_API_URL → backend</text>
+
+      <path class="e" d="M400 89 H362" marker-end="url(#f1-a)"/>
+      <path class="e" d="M680 89 H718" marker-end="url(#f1-a)"/>
+
+      <path class="e" d="M200 130 V188" marker-end="url(#f1-a)"/>
+      <text class="el" x="200" y="164" text-anchor="middle">/token · /userinfo</text>
+      <path class="e" d="M540 130 V188" marker-end="url(#f1-a)"/>
+      <text class="el" x="540" y="164" text-anchor="middle">GET /authorize</text>
+      <path class="ea" d="M900 130 V188" marker-end="url(#f1-aa)"/>
+      <text class="el ela" x="900" y="164" text-anchor="middle">fetch · Bearer ou cookie</text>
+
+      <!-- BACKEND -->
+      <rect class="zone" x="20" y="192" width="1080" height="232" rx="10"/>
+      <text class="zl" x="34" y="210">BACKEND · EXPRESS 4 · RENDER · src/server.ts</text>
+
+      <rect class="bx" x="40" y="222" width="170" height="48" rx="8"/>
+      <text class="t" x="52" y="242">helmet</text>
+      <text class="s" x="52" y="259">CSP · HSTS · deny frame</text>
+      <rect class="bx" x="235" y="222" width="170" height="48" rx="8"/>
+      <text class="t" x="247" y="242">CORS</text>
+      <text class="s" x="247" y="259">ALLOWED_ORIGINS</text>
+      <rect class="bx" x="430" y="222" width="170" height="48" rx="8"/>
+      <text class="t" x="442" y="242">Rate limit</text>
+      <text class="s" x="442" y="259">120/min + par route</text>
+      <rect class="bx" x="625" y="222" width="170" height="48" rx="8"/>
+      <text class="t" x="637" y="242">Parsers</text>
+      <text class="s" x="637" y="259">cookies · JSON ≤ 10 kB</text>
+      <rect class="bx" x="820" y="222" width="260" height="48" rx="8"/>
+      <text class="t" x="832" y="242">Routeurs Express</text>
+      <text class="s" x="832" y="259">authMiddleware par route</text>
+      <path class="e" d="M210 246 H233" marker-end="url(#f1-a)"/>
+      <path class="e" d="M405 246 H428" marker-end="url(#f1-a)"/>
+      <path class="e" d="M600 246 H623" marker-end="url(#f1-a)"/>
+      <path class="e" d="M795 246 H818" marker-end="url(#f1-a)"/>
+
+      <path class="e" d="M950 270 V286 H170"/>
+      <path class="e" d="M170 286 V308" marker-end="url(#f1-a)"/>
+      <path class="e" d="M420 286 V308" marker-end="url(#f1-a)"/>
+      <path class="e" d="M650 286 V308" marker-end="url(#f1-a)"/>
+      <path class="e" d="M850 286 V308" marker-end="url(#f1-a)"/>
+      <path class="e" d="M1010 286 V308" marker-end="url(#f1-a)"/>
+      <path class="e" d="M950 286 H1010"/>
+
+      <rect class="bxa" x="40" y="310" width="260" height="96" rx="8"/>
+      <text class="t ta" x="54" y="332">authRoutes</text>
+      <text class="s" x="54" y="352">/auth/* · login · register</text>
+      <text class="s" x="54" y="368">/authorize · /token · /userinfo</text>
+      <text class="s" x="54" y="384">/jwks.json · discovery</text>
+      <rect class="bx" x="320" y="310" width="200" height="96" rx="8"/>
+      <text class="t" x="334" y="332">userRoutes</text>
+      <text class="s" x="334" y="352">/user/* · authMiddleware</text>
+      <text class="s" x="334" y="368">profil · mot de passe</text>
+      <text class="s" x="334" y="384">sessions · consentements</text>
+      <rect class="bx" x="540" y="310" width="220" height="96" rx="8"/>
+      <text class="t" x="554" y="332">adminRoutes</text>
+      <text class="s" x="554" y="352">/admin/* · scope admin</text>
+      <text class="s" x="554" y="368">users · clients · scopes</text>
+      <text class="s" x="554" y="384">audit · settings</text>
+      <rect class="bxd" x="780" y="310" width="140" height="96" rx="8"/>
+      <text class="t" x="794" y="332">clientRoutes</text>
+      <text class="s" x="794" y="352">/clients/*</text>
+      <text class="s td" x="794" y="368">sans auth</text>
+      <rect class="bx" x="940" y="310" width="140" height="96" rx="8"/>
+      <text class="t" x="954" y="332">Outils</text>
+      <text class="s" x="954" y="352">/health</text>
+      <text class="s" x="954" y="368">/api-docs</text>
+      <text class="s" x="954" y="384">Swagger</text>
+
+      <!-- bus -->
+      <path class="e" d="M170 406 V428"/>
+      <path class="e" d="M420 406 V428"/>
+      <path class="e" d="M650 406 V428"/>
+      <path class="e" d="M850 406 V428"/>
+      <path class="e" d="M1010 406 V428"/>
+      <path class="e" d="M170 428 H1010"/>
+      <path class="ea" d="M190 428 V490" marker-end="url(#f1-aa)"/>
+      <text class="el ela" x="190" y="447" text-anchor="middle">Prisma</text>
+      <path class="e" d="M490 428 V490" marker-end="url(#f1-a)"/>
+      <text class="el" x="490" y="447" text-anchor="middle">JwtService</text>
+      <path class="e" d="M740 428 V490" marker-end="url(#f1-a)"/>
+      <text class="el" x="740" y="447" text-anchor="middle">SecurityLogger</text>
+      <path class="e" d="M980 428 V490" marker-end="url(#f1-a)"/>
+      <text class="el" x="980" y="447" text-anchor="middle">EmailService</text>
+
+      <!-- DATA -->
+      <rect class="zone" x="20" y="460" width="1080" height="96" rx="10"/>
+      <text class="zl" x="34" y="478">DONNÉES ET SERVICES</text>
+      <rect class="bxa" x="40" y="492" width="300" height="52" rx="8"/>
+      <text class="t ta" x="54" y="513">PostgreSQL</text>
+      <text class="s" x="54" y="531">Supabase en prod · Docker 16 en local</text>
+      <rect class="bx" x="380" y="492" width="220" height="52" rx="8"/>
+      <text class="t" x="394" y="513">keys/</text>
+      <text class="s" x="394" y="531">RSA 2048 · jwks.json</text>
+      <rect class="bx" x="640" y="492" width="200" height="52" rx="8"/>
+      <text class="t" x="654" y="513">security.log</text>
+      <text class="s" x="654" y="531">+ table AuditLog</text>
+      <rect class="bx" x="880" y="492" width="200" height="52" rx="8"/>
+      <text class="t" x="894" y="513">Serveur SMTP</text>
+      <text class="s" x="894" y="531">nodemailer · sinon console</text>
+    </svg>
+    </div>
+    <figcaption><b>Une chaîne, cinq routeurs, quatre dépendances.</b> Toute requête passe par la même chaîne de middlewares dans <code>src/server.ts</code>, de gauche à droite, avant d'atteindre son routeur. L'authentification n'est pas globale : chaque route l'ajoute elle-même avec <code>authMiddleware</code> et, pour l'admin, <code>requireScope('admin')</code>. En bas, les services qui touchent le monde extérieur. Le trait violet est celui de la base, que presque toutes les routes utilisent.</figcaption>
+  </figure>
+</section>
+
+<!-- ───────────── Flux OIDC ───────────── -->
+<section id="oidc">
+  <div class="sec-head">
+    <div class="eyebrow">Flux OpenID Connect</div>
+    <h2>Authorization code + PKCE, en seize étapes</h2>
+  </div>
+  <div class="prose">
+    <p>Une appli cliente qui veut connecter un utilisateur l'envoie sur <code>GET /authorize</code> avec son <code>client_id</code>, une <code>redirect_uri</code>, un <code>state</code>, un <code>nonce</code> et un <code>code_challenge</code>. Le backend vérifie la <code>redirect_uri</code> contre la liste du client avant toute autre chose, puis cherche une session : jeton Bearer ou cookie <code>accessToken</code>.</p>
+    <p>Sans session, l'utilisateur passe par la page de connexion du frontend, qui le renvoie ensuite sur <code>/authorize</code> grâce au paramètre <code>returnTo</code>. Sans consentement enregistré pour ce client, il passe par la page de consentement. Le code émis vit 60 secondes et ne sert qu'une fois.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 960 700" style="min-width:860px" role="img" aria-label="Séquence de connexion OIDC en 16 étapes entre l'application cliente, le navigateur, le frontend MySSO, le backend MySSO et PostgreSQL : redirection vers /authorize, redirection vers la page de login faute de cookie, POST /auth/login qui crée la session et pose les cookies, retour sur /authorize, redirection vers l'écran de consentement, approbation, création du consentement et du code d'autorisation, redirection vers l'application avec le code, échange du code contre les jetons sur /token avec le code_verifier, puis appel à /userinfo.">
+      <defs>
+        <marker id="f2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="mk" d="M0,1 L10,5 L0,9 z"/></marker>
+        <marker id="f2-aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="mka" d="M0,1 L10,5 L0,9 z"/></marker>
+      </defs>
+      <rect class="bx" x="30"  y="16" width="140" height="48" rx="8"/><text class="t" x="100" y="36" text-anchor="middle">Appli cliente</text><text class="s" x="100" y="54" text-anchor="middle">ex. MyLife</text>
+      <rect class="bx" x="210" y="16" width="140" height="48" rx="8"/><text class="t" x="280" y="36" text-anchor="middle">Navigateur</text><text class="s" x="280" y="54" text-anchor="middle">utilisateur</text>
+      <rect class="bx" x="390" y="16" width="140" height="48" rx="8"/><text class="t" x="460" y="36" text-anchor="middle">Frontend</text><text class="s" x="460" y="54" text-anchor="middle">Next.js</text>
+      <rect class="bxa" x="590" y="16" width="140" height="48" rx="8"/><text class="t ta" x="660" y="36" text-anchor="middle">Backend</text><text class="s" x="660" y="54" text-anchor="middle">Express</text>
+      <rect class="bx" x="790" y="16" width="140" height="48" rx="8"/><text class="t" x="860" y="36" text-anchor="middle">PostgreSQL</text><text class="s" x="860" y="54" text-anchor="middle">Prisma</text>
+
+      <line class="ll" x1="100" y1="64" x2="100" y2="690"/>
+      <line class="ll" x1="280" y1="64" x2="280" y2="690"/>
+      <line class="ll" x1="460" y1="64" x2="460" y2="690"/>
+      <line class="ll" x1="660" y1="64" x2="660" y2="690"/>
+      <line class="ll" x1="860" y1="64" x2="860" y2="690"/>
+
+      <path class="e"  d="M100 104 H280" marker-end="url(#f2-a)"/>
+      <text class="el" x="190" y="97" text-anchor="middle">1. redirige vers /authorize</text>
+      <path class="e"  d="M280 140 H660" marker-end="url(#f2-a)"/>
+      <text class="el" x="470" y="133" text-anchor="middle">2. GET /authorize?client_id&amp;code_challenge…</text>
+      <path class="er" d="M660 176 H280" marker-end="url(#f2-a)"/>
+      <text class="el" x="470" y="169" text-anchor="middle">3. pas de cookie → 302 /login?returnTo</text>
+      <path class="e"  d="M280 212 H460" marker-end="url(#f2-a)"/>
+      <text class="el" x="370" y="205" text-anchor="middle">4. email + mot de passe</text>
+      <path class="e"  d="M460 248 H660" marker-end="url(#f2-a)"/>
+      <text class="el" x="560" y="241" text-anchor="middle">5. POST /auth/login</text>
+      <path class="e"  d="M660 284 H860" marker-end="url(#f2-a)"/>
+      <text class="el" x="760" y="277" text-anchor="middle">6. argon2 · Session</text>
+      <path class="er" d="M660 320 H460" marker-end="url(#f2-a)"/>
+      <text class="el" x="560" y="313" text-anchor="middle">7. Set-Cookie + jetons</text>
+      <path class="e"  d="M280 356 H660" marker-end="url(#f2-a)"/>
+      <text class="el" x="470" y="349" text-anchor="middle">8. retour sur /authorize (cookie)</text>
+      <path class="er" d="M660 392 H280" marker-end="url(#f2-a)"/>
+      <text class="el" x="470" y="385" text-anchor="middle">9. pas de consentement → 302 /consent</text>
+      <path class="e"  d="M280 428 H460" marker-end="url(#f2-a)"/>
+      <text class="el" x="370" y="421" text-anchor="middle">10. « Autoriser »</text>
+      <path class="e"  d="M280 464 H660" marker-end="url(#f2-a)"/>
+      <text class="el" x="470" y="457" text-anchor="middle">11. GET /authorize?approved=true</text>
+      <path class="e"  d="M660 500 H860" marker-end="url(#f2-a)"/>
+      <text class="el" x="760" y="493" text-anchor="middle">12. UserConsent + AuthCode</text>
+      <path class="er" d="M660 536 H100" marker-end="url(#f2-a)"/>
+      <text class="el" x="380" y="529" text-anchor="middle">13. 302 redirect_uri?code&amp;state (via le navigateur)</text>
+      <path class="ea" d="M100 572 H660" marker-end="url(#f2-aa)"/>
+      <text class="el ela" x="380" y="565" text-anchor="middle">14. POST /token · code + code_verifier (+ secret)</text>
+      <path class="er" d="M660 608 H100" marker-end="url(#f2-a)"/>
+      <text class="el" x="380" y="601" text-anchor="middle">15. access_token · refresh_token · id_token</text>
+      <path class="e"  d="M100 644 H660" marker-end="url(#f2-a)"/>
+      <text class="el" x="380" y="637" text-anchor="middle">16. GET /userinfo · Bearer</text>
+      <rect class="bx" x="590" y="656" width="140" height="26" rx="6"/>
+      <text class="s" x="660" y="673" text-anchor="middle">claims selon scopes</text>
+    </svg>
+    </div>
+    <figcaption><b>Les étapes 3 à 12 sont sautées quand c'est possible.</b> Un utilisateur déjà connecté saute 3 à 7 ; un consentement déjà donné pour ce client saute 9 à 12 (sauf la création du code). Dans <code>/token</code>, le backend vérifie que le code existe, n'a pas servi, n'a pas expiré, que la <code>redirect_uri</code> est identique, puis contrôle PKCE en <code>S256</code> ou <code>plain</code>. Le <code>client_secret</code> est vérifié avec argon2 s'il est fourni. L'<code>id_token</code> n'est émis que si le scope <code>openid</code> a été consenti. Les flèches en pointillés sont des réponses ; le trait violet est l'échange de code, seul appel serveur à serveur.</figcaption>
+  </figure>
+
+  <div class="two">
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Endpoint de découverte</th><th>Contenu</th></tr></thead>
+        <tbody>
+          <tr><td class="k"><code>/.well-known/openid-configuration</code></td><td>issuer, endpoints, <code>RS256</code>, PKCE <code>plain</code> et <code>S256</code></td></tr>
+          <tr><td class="k"><code>/jwks.json</code></td><td>Clé publique RSA, <code>kid: default</code></td></tr>
+          <tr><td class="k"><code>/userinfo</code></td><td><code>sub</code>, puis <code>email</code>, <code>preferred_username</code>… selon les scopes</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Scope par défaut</th><th>Donne accès à</th></tr></thead>
+        <tbody>
+          <tr><td class="k"><code>openid</code></td><td>Émission de l'<code>id_token</code></td></tr>
+          <tr><td class="k"><code>profile</code></td><td>Infos de profil dans <code>/userinfo</code></td></tr>
+          <tr><td class="k"><code>email</code></td><td>Adresse email</td></tr>
+          <tr><td class="k"><code>username</code></td><td><code>preferred_username</code></td></tr>
+          <tr><td class="k"><code>admin</code></td><td>Routes <code>/admin/*</code> · jamais demandé par un client, ajouté au login si <code>isAdmin</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── Jetons ───────────── -->
+<section id="jetons">
+  <div class="sec-head">
+    <div class="eyebrow">Jetons et sessions</div>
+    <h2>Six secrets, six durées de vie</h2>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Secret</th><th>Format</th><th class="num">Durée</th><th>Stockage côté serveur</th><th>Où il voyage</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Access token</td><td>JWT RS256 · <code>sub</code>, <code>email</code>, <code>username</code>, <code>scope</code></td><td class="num">15 min</td><td>Aucun (vérifié par signature + <code>isDisabled</code>)</td><td>Cookie <code>accessToken</code> HttpOnly <code>lax</code>, corps JSON, header Bearer</td></tr>
+        <tr><td class="k">Refresh token</td><td>JWT RS256 · <code>type: refresh</code>, <code>jti</code> aléatoire</td><td class="num">90 j</td><td>Table <code>RefreshToken</code>, liée à une <code>Session</code></td><td>Cookie <code>refreshToken</code> HttpOnly <code>strict</code>, corps JSON</td></tr>
+        <tr><td class="k">ID token</td><td>JWT RS256 · <code>aud</code> = client, <code>nonce</code></td><td class="num">1 h<sup>*</sup></td><td>Aucun</td><td>Réponse de <code>/token</code></td></tr>
+        <tr><td class="k">Code d'autorisation</td><td>UUID v4</td><td class="num">60 s</td><td>Table <code>AuthCode</code>, supprimé à l'usage</td><td>Query string de la <code>redirect_uri</code></td></tr>
+        <tr><td class="k">Lien de réinitialisation</td><td>Jeton aléatoire</td><td class="num">1 h</td><td><code>PasswordResetToken</code>, usage unique</td><td>Email</td></tr>
+        <tr><td class="k">Lien de vérification</td><td>Jeton aléatoire</td><td class="num">24 h</td><td><code>EmailVerificationToken</code></td><td>Email</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted" style="font-size:13px">* <code>JWT_EXPIRATION</code>, 3600 s par défaut.</p>
+
+  <div class="two">
+    <ul class="plain">
+      <li><b>Rotation à chaque refresh</b> : <code>POST /auth/refresh</code> vérifie la signature, le type, la présence en base, l'expiration et l'existence d'au moins une session active, puis supprime l'ancien refresh token et en émet un nouveau sur la même <code>Session</code>.</li>
+      <li><b>Le scope admin est recalculé</b> au refresh à partir de <code>User.isAdmin</code> : retirer le droit admin prend effet au plus tard 15 minutes après.</li>
+      <li><b>Compte désactivé</b> : <code>authMiddleware</code> relit <code>isDisabled</code> en base à chaque requête, le blocage est donc immédiat.</li>
+    </ul>
+    <ul class="plain">
+      <li><b>Sessions visibles</b> : chaque connexion crée une <code>Session</code> avec IP et user-agent ; l'utilisateur les liste et les révoque depuis son tableau de bord (<code>/user/sessions</code>).</li>
+      <li><b>Déconnexion partout</b> : <code>POST /auth/logout</code> avec <code>all</code> supprime tous les refresh tokens et pose <code>revokedAt</code> sur toutes les sessions.</li>
+      <li><b>Changement ou réinitialisation de mot de passe</b> : toutes les sessions et refresh tokens de l'utilisateur sont supprimés.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ───────────── Données ───────────── -->
+<section id="donnees">
+  <div class="sec-head">
+    <div class="eyebrow">Données</div>
+    <h2>Onze tables, toutes autour de User</h2>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 1120 500" style="min-width:900px" role="img" aria-label="Schéma de données : User est relié en un-à-plusieurs à Session, RefreshToken, PasswordResetToken, EmailVerificationToken, AuthCode et UserConsent. Session est reliée à RefreshToken. AuthCode et UserConsent sont reliés à Client. Scope, AuditLog et SystemSetting n'ont pas de relation.">
+      <rect class="bx" x="40" y="30" width="230" height="58" rx="8"/>
+      <text class="t" x="54" y="53">Session</text>
+      <text class="s" x="54" y="73">ip · userAgent · revokedAt</text>
+      <rect class="bx" x="40" y="160" width="230" height="58" rx="8"/>
+      <text class="t" x="54" y="183">RefreshToken</text>
+      <text class="s" x="54" y="203">token unique · sessionId</text>
+      <rect class="bx" x="40" y="290" width="230" height="58" rx="8"/>
+      <text class="t" x="54" y="313">PasswordResetToken</text>
+      <text class="s" x="54" y="333">1 h · usedAt · cascade</text>
+
+      <rect class="bxa" x="350" y="140" width="250" height="88" rx="8"/>
+      <text class="t ta" x="364" y="164">User</text>
+      <text class="s" x="364" y="184">email · username · passwordHash</text>
+      <text class="s" x="364" y="200">isAdmin · isDisabled</text>
+      <text class="s" x="364" y="216">emailVerified</text>
+      <rect class="bx" x="350" y="290" width="250" height="58" rx="8"/>
+      <text class="t" x="364" y="313">EmailVerificationToken</text>
+      <text class="s" x="364" y="333">24 h · cascade</text>
+
+      <rect class="bx" x="680" y="30" width="230" height="58" rx="8"/>
+      <text class="t" x="694" y="53">AuthCode</text>
+      <text class="s" x="694" y="73">60 s · nonce · code_challenge</text>
+      <rect class="bx" x="680" y="290" width="230" height="58" rx="8"/>
+      <text class="t" x="694" y="313">UserConsent</text>
+      <text class="s" x="694" y="333">scopes[] · unique par client</text>
+      <rect class="bxa" x="950" y="132" width="150" height="104" rx="8"/>
+      <text class="t ta" x="964" y="156">Client</text>
+      <text class="s" x="964" y="176">clientId public</text>
+      <text class="s" x="964" y="192">secret argon2id</text>
+      <text class="s" x="964" y="208">redirectUris[]</text>
+      <text class="s" x="964" y="224">allowedScopes[]</text>
+
+      <path class="e" d="M350 160 H310 V59 H270"/>
+      <path class="e" d="M350 189 H270"/>
+      <path class="e" d="M155 88 V160"/>
+      <path class="e" d="M350 210 H310 V319 H270"/>
+      <path class="e" d="M475 228 V290"/>
+      <path class="e" d="M600 160 H640 V59 H680"/>
+      <path class="e" d="M600 210 H640 V319 H680"/>
+      <path class="ea" d="M910 59 H1025 V132"/>
+      <path class="ea" d="M910 319 H1025 V236"/>
+      <text class="el" x="155" y="128" text-anchor="middle">1 — n</text>
+      <text class="el" x="310" y="183" text-anchor="middle">1 — n</text>
+      <text class="el ela" x="1025" y="100" text-anchor="middle">clientId</text>
+      <text class="el ela" x="1025" y="282" text-anchor="middle">clientId</text>
+
+      <rect class="zone" x="20" y="384" width="1080" height="100" rx="10"/>
+      <text class="zl" x="34" y="402">TABLES SANS RELATION</text>
+      <rect class="bx" x="40" y="414" width="230" height="56" rx="8"/>
+      <text class="t" x="54" y="437">Scope</text>
+      <text class="s" x="54" y="457">name unique · description</text>
+      <rect class="bx" x="350" y="414" width="250" height="56" rx="8"/>
+      <text class="t" x="364" y="437">AuditLog</text>
+      <text class="s" x="364" y="457">event · userId · ip · data JSON</text>
+      <rect class="bx" x="680" y="414" width="230" height="56" rx="8"/>
+      <text class="t" x="694" y="437">SystemSetting</text>
+      <text class="s" x="694" y="457">clé / valeur · réglages admin</text>
+    </svg>
+    </div>
+    <figcaption><b>Client est relié par son <code>clientId</code> public, pas par son <code>id</code>.</b> Les tables de consentement et de jetons email sont en <code>onDelete: Cascade</code> ; sessions, refresh tokens et codes ne le sont pas et sont supprimés explicitement par <code>UserController.deleteAccount</code>. <code>AuditLog</code> garde un <code>userId</code> libre, sans clé étrangère, pour survivre à la suppression du compte. Treize migrations Prisma, de novembre 2025 à avril 2026.</figcaption>
+  </figure>
+  <p class="callout"><b>Un réglage en base, pas en variable d'environnement.</b> L'obligation de vérifier son email avant de se connecter se lit dans <code>SystemSetting['requireEmailVerification']</code>, modifiable depuis <code>/admin/settings</code>. Sans SMTP configuré, les liens de vérification et de réinitialisation sont écrits dans la console du serveur.</p>
+</section>
+
+<!-- ───────────── API ───────────── -->
+<section id="api">
+  <div class="sec-head">
+    <div class="eyebrow">API</div>
+    <h2>44 routes en quatre routeurs, plus les outils</h2>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Route</th><th>Protection</th><th>Rôle</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="3">Compte · src/routes/authRoutes.ts</td></tr>
+        <tr><td class="k"><code>POST /auth/register</code></td><td>5 / h / IP</td><td>Crée le compte, envoie l'email de vérification si exigé</td></tr>
+        <tr><td class="k"><code>POST /auth/login</code></td><td>10 / 15 min / IP</td><td>Vérifie le mot de passe, crée la session, pose les cookies</td></tr>
+        <tr><td class="k"><code>POST /auth/refresh</code></td><td>refresh token</td><td>Rotation du refresh token</td></tr>
+        <tr><td class="k"><code>POST /auth/logout</code></td><td>refresh token</td><td>Révoque une session ou toutes</td></tr>
+        <tr><td class="k"><code>POST /auth/forgot-password</code> · <code>reset-password</code></td><td>3 / h / IP</td><td>Lien de réinitialisation par email</td></tr>
+        <tr><td class="k"><code>GET /auth/verify-email</code> · <code>POST resend-verification</code></td><td>5 / h / IP</td><td>Vérification de l'adresse</td></tr>
+        <tr class="group"><td colspan="3">OAuth 2.0 / OIDC · src/routes/authRoutes.ts</td></tr>
+        <tr><td class="k"><code>GET /authorize</code> (alias <code>/login</code>)</td><td>cookie ou Bearer</td><td>Point d'entrée du flux, redirige vers login, consent ou le client</td></tr>
+        <tr><td class="k"><code>GET /consent</code> · <code>POST /auth/authorize</code></td><td>authMiddleware</td><td>Données de l'écran de consentement · décision</td></tr>
+        <tr><td class="k"><code>POST /token</code></td><td>30 / 15 min / IP</td><td>Échange du code (grant <code>authorization_code</code>)</td></tr>
+        <tr><td class="k"><code>GET /userinfo</code></td><td>authMiddleware</td><td>Claims de l'utilisateur</td></tr>
+        <tr><td class="k"><code>GET /jwks.json</code> · <code>/.well-known/openid-configuration</code></td><td>public</td><td>Découverte et clés publiques</td></tr>
+        <tr class="group"><td colspan="3">Utilisateur · src/routes/userRoutes.ts</td></tr>
+        <tr><td class="k"><code>GET · DELETE /user/consents[/:clientId]</code></td><td>authMiddleware</td><td>Lister et révoquer les applis autorisées</td></tr>
+        <tr><td class="k"><code>GET · DELETE /user/sessions[/:sessionId]</code></td><td>authMiddleware</td><td>Sessions actives</td></tr>
+        <tr><td class="k"><code>PATCH /user/profile</code> · <code>/user/password</code></td><td>authMiddleware</td><td>Nom d'utilisateur, mot de passe</td></tr>
+        <tr><td class="k"><code>DELETE /user/account</code></td><td>authMiddleware</td><td>Suppression du compte</td></tr>
+        <tr class="group"><td colspan="3">Administration · src/routes/adminRoutes.ts</td></tr>
+        <tr><td class="k"><code>/admin/dashboard</code> · <code>/admin/users[/:id]</code></td><td>scope <code>admin</code></td><td>Statistiques, gestion des comptes</td></tr>
+        <tr><td class="k"><code>/admin/clients[/:clientId]</code> · <code>rotate-secret</code></td><td>scope <code>admin</code></td><td>CRUD des applis, rotation du secret</td></tr>
+        <tr><td class="k"><code>/admin/scopes[/:id]</code></td><td>scope <code>admin</code></td><td>CRUD des scopes</td></tr>
+        <tr><td class="k"><code>/admin/audit-logs</code> · <code>/admin/settings</code></td><td>scope <code>admin</code></td><td>Journal d'audit, réglages système</td></tr>
+        <tr class="group"><td colspan="3">Clients · src/routes/clientRoutes.ts</td></tr>
+        <tr><td class="k"><code>POST /clients/register</code></td><td><span class="pill no">aucune</span></td><td>Enregistre une appli, renvoie le secret en clair une seule fois</td></tr>
+        <tr><td class="k"><code>GET · DELETE /clients/:clientId</code> · <code>PUT …/redirect-uris</code></td><td><span class="pill no">aucune</span></td><td>Lecture, suppression, mise à jour des URIs</td></tr>
+        <tr class="group"><td colspan="3">Outils · src/server.ts</td></tr>
+        <tr><td class="k"><code>GET /health</code></td><td>hors rate limit</td><td>Statut, latence DB, mémoire · 503 si la base ne répond pas</td></tr>
+        <tr><td class="k"><code>/api-docs</code> · <code>/api-docs.json</code></td><td>public, CSP relâchée</td><td>Swagger UI généré depuis les commentaires JSDoc</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────── Frontend ───────────── -->
+<section id="frontend">
+  <div class="sec-head">
+    <div class="eyebrow">Frontend</div>
+    <h2>Seize pages Next.js, toutes côté client</h2>
+  </div>
+  <div class="prose">
+    <p>Le dossier <code>frontend/</code> est une appli Next.js 16 (App Router) indépendante, qui ne parle au backend que par <code>NEXT_PUBLIC_API_URL</code>. <code>AuthContext</code> garde l'utilisateur courant, décode l'access token pour en tirer l'identité et le rafraîchit au chargement s'il a expiré. <code>lib/api.ts</code> et <code>lib/adminApi.ts</code> regroupent les appels.</p>
+  </div>
+  <div class="two">
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Page</th><th>Rôle</th></tr></thead>
+        <tbody>
+          <tr class="group"><td colspan="2">Parcours d'authentification</td></tr>
+          <tr><td class="k"><code>/login</code> · <code>/register</code></td><td>Formulaires, suivent <code>returnTo</code></td></tr>
+          <tr><td class="k"><code>/consent</code></td><td>Liste les scopes demandés, renvoie sur <code>/authorize?approved=…</code></td></tr>
+          <tr><td class="k"><code>/callback</code></td><td>Reçoit le code quand le frontend est lui-même client</td></tr>
+          <tr><td class="k"><code>/oauth-error</code></td><td>Erreurs <code>invalid_client</code>, <code>invalid_request</code></td></tr>
+          <tr><td class="k"><code>/forgot-password</code></td><td>Demande de lien de réinitialisation</td></tr>
+          <tr><td class="k"><code>/reset-password</code> · <code>/verify-email</code></td><td>Liens reçus par email</td></tr>
+          <tr class="group"><td colspan="2">Espace connecté</td></tr>
+          <tr><td class="k"><code>/dashboard</code></td><td>Profil, mot de passe, sessions, applis autorisées</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Page admin</th><th>Rôle</th></tr></thead>
+        <tbody>
+          <tr><td class="k"><code>/admin</code></td><td>Tableau de bord</td></tr>
+          <tr><td class="k"><code>/admin/users</code></td><td>Désactiver, promouvoir, supprimer</td></tr>
+          <tr><td class="k"><code>/admin/clients</code></td><td>Applications et rotation de secret</td></tr>
+          <tr><td class="k"><code>/admin/scopes</code></td><td>Scopes et descriptions affichées au consentement</td></tr>
+          <tr><td class="k"><code>/admin/audit</code></td><td>Lecture de <code>AuditLog</code></td></tr>
+          <tr><td class="k"><code>/admin/settings</code></td><td>Vérification d'email obligatoire</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── Sécurité ───────────── -->
+<section id="securite">
+  <div class="sec-head">
+    <div class="eyebrow">Sécurité</div>
+    <h2>Les protections, couche par couche</h2>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Couche</th><th>Mécanisme</th><th>Où</th></tr></thead>
+      <tbody>
+        <tr><td class="k">En-têtes HTTP</td><td>helmet : CSP <code>'self'</code>, HSTS 1 an + preload, <code>X-Frame-Options: DENY</code>, nosniff, referrer strict</td><td><code>src/server.ts</code></td></tr>
+        <tr><td class="k">CORS</td><td>Liste blanche <code>ALLOWED_ORIGINS</code>, credentials ; requêtes sans <code>Origin</code> acceptées (mobile, curl)</td><td><code>src/server.ts</code></td></tr>
+        <tr><td class="k">Débit</td><td>120 req/min global, puis limites par route (voir API) ; <code>trust proxy</code> pour lire l'IP derrière Render</td><td><code>express-rate-limit</code></td></tr>
+        <tr><td class="k">Taille des requêtes</td><td>Corps JSON et formulaire limités à 10 kB</td><td><code>src/server.ts</code></td></tr>
+        <tr><td class="k">Mots de passe</td><td>argon2id, 64 MB, 3 itérations ; même message d'erreur pour email inconnu ou mot de passe faux</td><td><code>hashService.ts</code></td></tr>
+        <tr><td class="k">Secrets clients</td><td><code>secret_</code> + 32 octets aléatoires, stockés en argon2id, affichés une seule fois</td><td><code>clientService.ts</code></td></tr>
+        <tr><td class="k">Jetons</td><td>RS256 uniquement, <code>issuer</code> vérifié, refresh à usage unique avec <code>jti</code></td><td><code>jwtService.ts</code></td></tr>
+        <tr><td class="k">Redirections</td><td><code>redirect_uri</code> comparée à la liste du client ; sans <code>client_id</code>, localhost seulement et seulement en dev</td><td><code>authCodeService.ts</code></td></tr>
+        <tr><td class="k">Codes</td><td>60 s, usage unique, PKCE <code>S256</code> ou <code>plain</code>, <code>redirect_uri</code> identique à l'échange</td><td><code>authCodeService.ts</code></td></tr>
+        <tr><td class="k">Cookies</td><td>HttpOnly, <code>secure</code> en production, <code>SameSite=strict</code> pour le refresh</td><td><code>authController.ts</code></td></tr>
+        <tr><td class="k">Autorisation</td><td><code>authMiddleware</code> (signature + compte actif) puis <code>requireScope</code></td><td><code>src/middleware/</code></td></tr>
+        <tr><td class="k">Traçabilité</td><td>Connexions, échecs, émissions de jetons, révocations, actions admin</td><td><code>securityLogger.ts</code></td></tr>
+        <tr><td class="k">Config au démarrage</td><td>Avertit en production si <code>BASE_URL</code> manque ou n'est pas en HTTPS, si <code>JWT_SECRET</code> vaut <code>changeme</code>, si <code>ALLOWED_ORIGINS</code> manque</td><td><code>config/env.ts</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────── Points d'attention ───────────── -->
+<section id="attention">
+  <div class="sec-head">
+    <div class="eyebrow">Points d'attention</div>
+    <h2>Ce que le code fait différemment de ce qu'il annonce</h2>
+  </div>
+  <p class="callout warn"><b>Relevé en lisant le code, pas testé.</b> Chaque point renvoie à la ligne concernée, pour vérification.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Sujet</th><th>Constat</th><th>Où</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Routes <code>/clients/*</code></td><td>Aucun middleware : n'importe qui peut enregistrer, lire, supprimer un client ou changer ses <code>redirectUris</code>. L'équivalent protégé existe déjà sous <code>/admin/clients</code>.</td><td><code>src/routes/clientRoutes.ts:43</code></td></tr>
+        <tr><td class="k">PKCE perdu au consentement</td><td>La redirection vers <code>/consent</code> ne transmet ni <code>code_challenge</code> ni <code>code_challenge_method</code> ; au retour <code>approved=true</code>, le code est émis sans challenge et <code>/token</code> n'exige plus de <code>code_verifier</code>. Concerne la première connexion de chaque utilisateur à chaque client.</td><td><code>src/controllers/authController.ts:576</code></td></tr>
+        <tr><td class="k">Scopes au consentement</td><td>Le retour <code>approved=true</code> enregistre les scopes par défaut, pas ceux affichés et demandés.</td><td><code>authController.ts:551</code></td></tr>
+        <tr><td class="k">Découverte</td><td><code>grant_types_supported</code> annonce <code>refresh_token</code>, mais <code>/token</code> ne gère que <code>authorization_code</code> ; le refresh passe par <code>/auth/refresh</code>.</td><td><code>authController.ts:420</code> · <code>:945</code></td></tr>
+        <tr><td class="k"><code>email_verified</code></td><td>Toujours <code>true</code> dans l'<code>id_token</code>, quel que soit <code>User.emailVerified</code>.</td><td><code>src/services/jwtService.ts:110</code></td></tr>
+        <tr><td class="k">Clés RSA</td><td>Générées par <code>postinstall</code> si absentes, et <code>keys/</code> est ignoré par git. Sur Render, chaque build part d'un disque vierge : nouvelle paire à chaque déploiement, tous les jetons émis deviennent invalides, sous le même <code>kid: default</code>.</td><td><code>scripts/generateKeys.js</code></td></tr>
+        <tr><td class="k">Jetons dans <code>localStorage</code></td><td>Le backend pose des cookies HttpOnly, mais renvoie aussi les jetons en JSON et le frontend les range dans <code>localStorage</code>, lisible par tout script de la page.</td><td><code>frontend/contexts/AuthContext.tsx:136</code></td></tr>
+        <tr><td class="k"><code>security.log</code></td><td>Écrit sur le disque local, éphémère sur Render ; seule la copie <code>AuditLog</code> en base survit.</td><td><code>securityLogger.ts</code></td></tr>
+        <tr><td class="k">Cinq <code>PrismaClient</code></td><td>Instanciés séparément dans cinq services, donc cinq pools de connexions vers Supabase.</td><td><code>src/services/*.ts</code></td></tr>
+        <tr><td class="k">Build frontend</td><td><code>typescript.ignoreBuildErrors: true</code> : la CI construit le frontend sans vérifier ses types.</td><td><code>frontend/next.config.ts</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────── CI/CD ───────────── -->
+<section id="cicd">
+  <div class="sec-head">
+    <div class="eyebrow">CI et déploiement</div>
+    <h2>GitHub Actions vérifie, Render déploie</h2>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 1080 300" style="min-width:880px" role="img" aria-label="Un push ou une pull request sur main ou develop déclenche la CI GitHub Actions : Node 18 et 20, Postgres 15, migrations, build TypeScript, puis en Node 20 build du frontend et test de /health. Un push sur main déclenche le build Render : npm install qui génère les clés et le client Prisma, npm run build, puis node dist/server.js. Le backend se connecte à PostgreSQL sur Supabase ; les migrations sont appliquées à la main.">
+      <defs>
+        <marker id="f5-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="mk" d="M0,1 L10,5 L0,9 z"/></marker>
+        <marker id="f5-aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="mka" d="M0,1 L10,5 L0,9 z"/></marker>
+      </defs>
+      <rect class="bx" x="20" y="110" width="160" height="70" rx="8"/>
+      <text class="t" x="34" y="134">GitHub</text>
+      <text class="s" x="34" y="154">push ou PR</text>
+      <text class="s" x="34" y="170">main · develop</text>
+
+      <rect class="zone" x="230" y="14" width="830" height="118" rx="10"/>
+      <text class="zl" x="244" y="32">CI · .github/workflows/ci.yml</text>
+      <rect class="bx" x="244" y="44" width="250" height="76" rx="8"/>
+      <text class="t" x="258" y="66">Node 18 et 20</text>
+      <text class="s" x="258" y="86">service Postgres 15</text>
+      <text class="s" x="258" y="102">npm ci · prisma generate</text>
+      <rect class="bx" x="524" y="44" width="250" height="76" rx="8"/>
+      <text class="t" x="538" y="66">Base et backend</text>
+      <text class="s" x="538" y="86">prisma migrate deploy</text>
+      <text class="s" x="538" y="102">tsc build · tsc --noEmit</text>
+      <rect class="bx" x="804" y="44" width="240" height="76" rx="8"/>
+      <text class="t" x="818" y="66">Node 20 seulement</text>
+      <text class="s" x="818" y="86">next build du frontend</text>
+      <text class="s" x="818" y="102">démarre · curl /health</text>
+      <path class="e" d="M494 82 H522" marker-end="url(#f5-a)"/>
+      <path class="e" d="M774 82 H802" marker-end="url(#f5-a)"/>
+
+      <rect class="zone" x="230" y="160" width="830" height="126" rx="10"/>
+      <text class="zl" x="244" y="178">PRODUCTION · RENDER (BRANCHE MAIN)</text>
+      <rect class="bx" x="244" y="190" width="250" height="80" rx="8"/>
+      <text class="t" x="258" y="212">npm install</text>
+      <text class="s" x="258" y="232">postinstall : generateKeys.js</text>
+      <text class="s" x="258" y="248">+ prisma generate</text>
+      <rect class="bx" x="524" y="190" width="250" height="80" rx="8"/>
+      <text class="t" x="538" y="212">npm run build</text>
+      <text class="s" x="538" y="232">tsc → dist/</text>
+      <text class="s" x="538" y="248">node dist/server.js</text>
+      <rect class="bxa" x="804" y="190" width="240" height="80" rx="8"/>
+      <text class="t ta" x="818" y="212">PostgreSQL · Supabase</text>
+      <text class="s" x="818" y="232">pooler (DATABASE_URL)</text>
+      <text class="s" x="818" y="248">direct (DIRECT_URL)</text>
+      <path class="e" d="M494 230 H522" marker-end="url(#f5-a)"/>
+      <path class="ea" d="M774 230 H802" marker-end="url(#f5-aa)"/>
+
+      <path class="e" d="M180 135 H205 V82 H242" marker-end="url(#f5-a)"/>
+      <path class="e" d="M180 155 H205 V230 H242" marker-end="url(#f5-a)"/>
+    </svg>
+    </div>
+    <figcaption><b>La CI ne teste que le démarrage.</b> Il n'y a pas de tests unitaires ni de lint côté backend : la CI vérifie que le schéma migre, que tout compile et que <code>/health</code> répond « healthy ». Les scripts de <code>scripts/test*.sh</code> exercent le flux OIDC à la main contre un serveur local. En production, les migrations ne sont pas jouées par le build : <code>RENDER_DEPLOYMENT.md</code> demande de lancer <code>npx prisma migrate deploy</code> à la main. L'hébergement du frontend n'est pas décrit dans le dépôt.</figcaption>
+  </figure>
+  <div class="two">
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Variable</th><th>Rôle</th></tr></thead>
+        <tbody>
+          <tr><td class="k"><code>DATABASE_URL</code> · <code>DIRECT_URL</code></td><td>Pooler Supabase · connexion directe pour les migrations</td></tr>
+          <tr><td class="k"><code>BASE_URL</code> · <code>JWT_ISSUER</code></td><td>URL publique, <code>iss</code> des jetons</td></tr>
+          <tr><td class="k"><code>JWT_EXPIRATION</code></td><td>Durée de l'<code>id_token</code> (s)</td></tr>
+          <tr><td class="k"><code>FRONTEND_URL</code></td><td>Cible des redirections login, consent, erreurs, liens email</td></tr>
+          <tr><td class="k"><code>ALLOWED_ORIGINS</code></td><td>Liste blanche CORS</td></tr>
+          <tr><td class="k"><code>SMTP_*</code></td><td>Envoi d'emails ; vide = console</td></tr>
+          <tr><td class="k"><code>KEYS_DIR</code></td><td>Dossier des clés RSA</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="plain">
+      <li><b>En local</b> : <code>docker-compose.yml</code> lance Postgres 16, <code>npm run dev</code> lance le backend sous nodemon (<code>ts-node</code>) sur le port 3000, le frontend tourne sur un autre port.</li>
+      <li><b>Scripts d'amorçage</b> : <code>seed_scopes.js</code>, <code>seed_test_data.js</code>, <code>add_watch_client.js</code>, <code>update_client_scopes.js</code>.</li>
+      <li><b>Dépendances</b> : Renovate n'est pas configuré dans ce dépôt ; les numéros de version de la CI (Node 18, Postgres 15) diffèrent de ceux du local (Postgres 16).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ───────────── Stack ───────────── -->
+<section id="stack">
+  <div class="sec-head">
+    <div class="eyebrow">Stack</div>
+    <h2>Stack complète</h2>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Techno</th><th class="num">Version</th><th>Rôle</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="3">Backend</td></tr>
+        <tr><td class="k">Node.js · TypeScript</td><td class="num">18–20 · 5.3</td><td>Runtime et langage, compilé en <code>dist/</code></td></tr>
+        <tr><td class="k">Express</td><td class="num">4.18</td><td>Serveur HTTP et routage</td></tr>
+        <tr><td class="k">jsonwebtoken</td><td class="num">9</td><td>Signature et vérification RS256</td></tr>
+        <tr><td class="k">argon2</td><td class="num">0.31</td><td>Hash des mots de passe et des secrets clients</td></tr>
+        <tr><td class="k">helmet · cors · cookie-parser</td><td class="num">8 · 2.8 · 1.4</td><td>En-têtes, CORS, cookies</td></tr>
+        <tr><td class="k">express-rate-limit</td><td class="num">8.3</td><td>Limites de débit en mémoire</td></tr>
+        <tr><td class="k">nodemailer</td><td class="num">8</td><td>Emails de vérification et de réinitialisation</td></tr>
+        <tr><td class="k">swagger-jsdoc · swagger-ui-express</td><td class="num">6 · 5</td><td>Documentation d'API sur <code>/api-docs</code></td></tr>
+        <tr><td class="k">nodemon · ts-node</td><td class="num">3 · 10</td><td>Dev avec rechargement</td></tr>
+        <tr class="group"><td colspan="3">Données</td></tr>
+        <tr><td class="k">Prisma (client + CLI)</td><td class="num">6.19</td><td>ORM, migrations</td></tr>
+        <tr><td class="k">PostgreSQL</td><td class="num">15 · 16</td><td>CI · local Docker ; Supabase en production</td></tr>
+        <tr class="group"><td colspan="3">Frontend</td></tr>
+        <tr><td class="k">Next.js (App Router)</td><td class="num">16.2</td><td>Pages login, consentement, dashboard, admin</td></tr>
+        <tr><td class="k">React</td><td class="num">19.2</td><td>Interface</td></tr>
+        <tr><td class="k">Tailwind CSS</td><td class="num">4</td><td>Styles, thème clair et sombre</td></tr>
+        <tr><td class="k">ESLint (<code>eslint-config-next</code>)</td><td class="num">9</td><td>Lint du frontend</td></tr>
+        <tr class="group"><td colspan="3">Infrastructure</td></tr>
+        <tr><td class="k">Render (Web Service)</td><td class="num">—</td><td>Hébergement du backend</td></tr>
+        <tr><td class="k">Supabase</td><td class="num">—</td><td>PostgreSQL managé, pooler pgbouncer</td></tr>
+        <tr><td class="k">GitHub Actions</td><td class="num">—</td><td>CI : migrations, build, health check</td></tr>
+        <tr><td class="k">Docker Compose</td><td class="num">—</td><td>Postgres local</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<footer>Relevé dans le dépôt <code>louisbertrand22/MySSO</code> : <code>package.json</code>, <code>frontend/package.json</code>, <code>prisma/schema.prisma</code>, <code>src/server.ts</code>, <code>src/config/*</code>, <code>src/routes/*</code>, <code>src/controllers/*</code>, <code>src/services/*</code>, <code>src/middleware/*</code>, <code>frontend/app/*</code>, <code>frontend/contexts/*</code>, <code>.github/workflows/ci.yml</code>, <code>docker-compose.yml</code>, <code>RENDER_DEPLOYMENT.md</code>.</footer>
+</div>
+</body>
+</html>
