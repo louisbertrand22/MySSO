@@ -138,6 +138,16 @@
     color: var(--fg);
   }
 
+  /* Browser autofill (yellow / olive by default): keep the theme surface.
+     An inset shadow paints over the forced background in both Chromium and Firefox. */
+  input:autofill,
+  input:-webkit-autofill {
+    box-shadow: 0 0 0 1000px var(--surface) inset;
+    -webkit-text-fill-color: var(--fg);
+    caret-color: var(--fg);
+    filter: none;
+  }
+
   dialog::backdrop {
     background: oklch(0.15 0.01 255 / 0.55);
     backdrop-filter: blur(2px);

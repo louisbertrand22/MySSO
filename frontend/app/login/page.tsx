@@ -11,6 +11,14 @@ import { Button, TextLink } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Feedback';
 import { ArrowLeftIcon, MailIcon } from '@/components/ui/Icons';
 
+// API error codes → messages for the user
+const LOGIN_ERRORS: Record<string, string> = {
+  'Invalid credentials': 'Adresse e-mail ou mot de passe incorrect.',
+  account_disabled: 'Ce compte a été désactivé. Contactez l’administrateur.',
+  too_many_requests: 'Trop de tentatives. Patientez quelques minutes avant de réessayer.',
+  server_error: 'Le service rencontre un problème. Réessayez dans quelques instants.',
+};
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -82,7 +90,7 @@ function LoginContent() {
       if (code === 'email_not_verified') {
         setUnverifiedEmail(emailFromErr || email);
       } else {
-        setError(err instanceof Error ? err.message : 'La connexion a échoué. Réessayez.');
+        setError(LOGIN_ERRORS[code ?? ''] ?? 'La connexion a échoué. Réessayez.');
       }
     }
   };
