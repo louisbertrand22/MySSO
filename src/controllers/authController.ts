@@ -78,8 +78,9 @@ export class AuthController {
     } catch (error) {
       console.error('Register error:', error);
       res.status(500).json({
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error"
+        // Details stay in the server logs: never expose internal errors (Prisma, stack…) to clients
+        error: "server_error",
+        message: "Une erreur interne est survenue. Réessayez dans quelques instants."
       });
     }
   }
@@ -152,8 +153,9 @@ export class AuthController {
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ 
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error"
+        // Details stay in the server logs: never expose internal errors (Prisma, stack…) to clients
+        error: "server_error",
+        message: "Une erreur interne est survenue. Réessayez dans quelques instants."
       });
     }
   }
@@ -279,8 +281,9 @@ export class AuthController {
     } catch (error) {
       console.error('Refresh error:', error);
       res.status(500).json({ 
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error"
+        // Details stay in the server logs: never expose internal errors (Prisma, stack…) to clients
+        error: "server_error",
+        message: "Une erreur interne est survenue. Réessayez dans quelques instants."
       });
     }
   }
@@ -395,8 +398,9 @@ export class AuthController {
       // Even on error, try to clear the cookie
       res.clearCookie('refreshToken');
       res.status(500).json({ 
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error"
+        // Details stay in the server logs: never expose internal errors (Prisma, stack…) to clients
+        error: "server_error",
+        message: "Une erreur interne est survenue. Réessayez dans quelques instants."
       });
     }
   }
