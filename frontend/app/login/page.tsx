@@ -2,11 +2,14 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiService } from '@/lib/api';
 import AuthForm from '@/components/AuthForm';
 import { resolveReturnTo } from '@/lib/redirect';
+import AuthShell, { StatusIcon } from '@/components/AuthShell';
+import { Button, TextLink } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Feedback';
+import { ArrowLeftIcon, MailIcon } from '@/components/ui/Icons';
 
 function LoginContent() {
   const router = useRouter();
@@ -39,7 +42,7 @@ function LoginContent() {
       let emailFromErr: string | undefined;
 
       if (!err) {
-        setError('Login failed');
+        setError('La connexion a échoué. Réessayez.');
         return;
       }
 
@@ -79,7 +82,7 @@ function LoginContent() {
       if (code === 'email_not_verified') {
         setUnverifiedEmail(emailFromErr || email);
       } else {
-        setError(err instanceof Error ? err.message : 'Login failed');
+        setError(err instanceof Error ? err.message : 'La connexion a échoué. Réessayez.');
       }
     }
   };
@@ -102,66 +105,46 @@ function LoginContent() {
     ? `/register?returnTo=${encodeURIComponent(returnTo)}`
     : '/register';
 
-  return (
-    <div className="flex-1 flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            Se connecter à MySSO
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-300">
-            Vous n&apos;avez pas de compte ?{' '}
-            <Link href={registerHref} className="font-medium text-indigo-400 hover:text-indigo-300">
-                S&apos;inscrire pour un compte gratuit
-            </Link>
-          </p>
-        </div>
-
-        <div className="mt-8 bg-gray-800 py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
-          {unverifiedEmail ? (
-            <div className="space-y-4 text-center">
-              <div className="w-14 h-14 bg-yellow-900/40 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <p className="text-white font-semibold">E-mail non vérifié</p>
-              <p className="text-sm text-gray-400">
-                Vérifiez votre boîte mail pour{' '}
-                <span className="text-white">{unverifiedEmail}</span>{' '}
-                et cliquez sur le lien d&apos;activation.
-              </p>
-              {resendDone ? (
-                <p className="text-sm text-green-400">Un nouveau lien a été envoyé.</p>
-              ) : (
-                <button
-                  onClick={handleResend}
-                  disabled={resendLoading}
-                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl shadow transition-all text-sm"
-                >
-                  {resendLoading ? 'Envoi...' : 'Renvoyer le lien de vérification'}
-                </button>
-              )}
-              <button
-                onClick={() => { setUnverifiedEmail(null); setResendDone(false); }}
-                className="text-sm text-gray-400 hover:text-gray-300"
-              >
-                ← Retour
-              </button>
-            </div>
+  if (unverifiedEmail) {
+    return (
+      <AuthShell
+        icon={<StatusIcon tone="warning"><MailIcon size={20} /></StatusIcon>}
+        title="Confirmez votre adresse e-mail"
+        description={<>Un lien d’activation a été envoyé à <span className="font-medium text-fg">{unverifiedEmail}</span>. Cliquez dessus pour activer votre compte, puis reconnectez-vous.</>}
+      >
+        <div className="space-y-3">
+          {resendDone ? (
+            <Alert tone="success">Un nouveau lien vient d’être envoyé.</Alert>
           ) : (
-            <>
-              <AuthForm mode="login" onSubmit={handleSubmit} error={error} />
-              <div className="mt-4 text-center">
-                <Link href="/forgot-password" className="text-sm text-indigo-400 hover:text-indigo-300">
-                  Mot de passe oublié ?
-                </Link>
-              </div>
-            </>
+            <Button className="w-full" size="lg" loading={resendLoading} onClick={handleResend}>
+              Renvoyer le lien
+            </Button>
           )}
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={() => { setUnverifiedEmail(null); setResendDone(false); }}
+          >
+            <ArrowLeftIcon size={16} /> Retour à la connexion
+          </Button>
         </div>
-      </div>
-    </div>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell
+      title="Connexion"
+      description="Un seul compte pour toutes vos applications."
+      below={<>Pas encore de compte ? <TextLink href={registerHref}>Créer un compte</TextLink></>}
+    >
+      <AuthForm
+        mode="login"
+        onSubmit={handleSubmit}
+        error={error}
+        passwordAside={<TextLink href="/forgot-password" className="text-[13px]">Mot de passe oublié ?</TextLink>}
+      />
+    </AuthShell>
   );
 }
 

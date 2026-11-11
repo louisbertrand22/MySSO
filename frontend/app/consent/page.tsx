@@ -3,6 +3,10 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import AuthShell, { StatusIcon } from '@/components/AuthShell';
+import { Button, ButtonLink, TextLink } from '@/components/ui/Button';
+import { Alert, Skeleton } from '@/components/ui/Feedback';
+import { AlertIcon, CheckIcon, ExternalIcon } from '@/components/ui/Icons';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -24,7 +28,7 @@ interface ConsentData {
 function ConsentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, accessToken, isLoading, refreshAccessToken } = useAuth();
+  const { user, accessToken, isLoading, refreshAccessToken, logout } = useAuth();
   const [consentData, setConsentData] = useState<ConsentData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<'approve' | 'deny' | null>(null);
@@ -102,22 +106,33 @@ function ConsentContent() {
     [accessToken, consentData, refreshAccessToken, searchParams]
   );
 
+  const switchAccount = async () => {
+    await logout();
+    const here = `/consent?${searchParams.toString()}`;
+    router.replace(`/login?returnTo=${encodeURIComponent(here)}`);
+  };
+
   if (error && !consentData) {
     return (
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-xl border border-zinc-200 dark:border-zinc-800 text-center">
-          <h1 className="text-xl font-semibold mb-2">Autorisation impossible</h1>
-          <p className="text-zinc-600 dark:text-zinc-400">{error}</p>
-        </div>
-      </div>
+      <AuthShell
+        icon={<StatusIcon tone="danger"><AlertIcon size={20} /></StatusIcon>}
+        title="Autorisation impossible"
+        description={error}
+      >
+        <ButtonLink href="/dashboard" variant="secondary" className="w-full">Aller à mon compte</ButtonLink>
+      </AuthShell>
     );
   }
 
   if (isLoading || !user || !consentData) {
     return (
-      <div className="flex-1 flex items-center justify-center p-6">
-        <p className="text-zinc-500">Chargement…</p>
-      </div>
+      <AuthShell title={<Skeleton className="h-6 w-56" />}>
+        <div className="space-y-3">
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </AuthShell>
     );
   }
 
@@ -130,48 +145,58 @@ function ConsentContent() {
   })();
 
   return (
-    <div className="flex-1 flex items-center justify-center p-6">
-      <div className="max-w-md w-full p-8 rounded-xl border border-zinc-200 dark:border-zinc-800">
-        <h1 className="text-xl font-semibold mb-2">{consentData.client.name} demande l’accès à votre compte</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
-          Connecté en tant que <strong>{user.email}</strong>
-        </p>
-
-        {consentData.scopes.length > 0 && (
-          <ul className="space-y-3 mb-6">
-            {consentData.scopes.map((scope) => (
-              <li key={scope.name}>
-                <p className="font-medium">{scope.description || scope.name}</p>
-                <p className="text-xs text-zinc-500 font-mono">{scope.name}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
-          Vous serez redirigé vers <strong>{redirectHost}</strong>.
-        </p>
-
-        {error && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{error}</p>}
-
-        <div className="flex gap-3">
-          <button
-            onClick={() => submitDecision(true)}
-            disabled={submitting !== null}
-            className="flex-1 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-2 rounded-lg disabled:opacity-50"
-          >
-            {submitting === 'approve' ? 'Autorisation…' : 'Autoriser'}
-          </button>
-          <button
-            onClick={() => submitDecision(false)}
-            disabled={submitting !== null}
-            className="flex-1 border border-zinc-300 dark:border-zinc-700 px-4 py-2 rounded-lg disabled:opacity-50"
-          >
-            {submitting === 'deny' ? 'Refus…' : 'Refuser'}
+    <AuthShell
+      title={<><span className="text-accent-text">{consentData.client.name}</span> souhaite accéder à votre compte</>}
+      below={<>Vous pourrez retirer cet accès à tout moment depuis <TextLink href="/dashboard#applications">votre compte</TextLink>.</>}
+    >
+      <div className="space-y-5">
+        <div className="flex items-center gap-3 rounded-[var(--radius-control)] border border-line bg-surface-2 px-3 py-2.5">
+          <div className="grid size-8 shrink-0 place-items-center rounded-[7px] bg-accent-soft text-sm font-semibold text-accent-text">
+            {(user.username || user.email).charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{user.username || user.email}</p>
+            {user.username && <p className="truncate text-[13px] text-muted">{user.email}</p>}
+          </div>
+          <button type="button" onClick={switchAccount} className="shrink-0 text-[13px] font-medium text-muted hover:text-fg">
+            Pas vous ?
           </button>
         </div>
+
+        {consentData.scopes.length > 0 && (
+          <div className="space-y-2.5">
+            <p className="text-sm font-medium">Cette application pourra :</p>
+            <ul className="space-y-2">
+              {consentData.scopes.map((scope) => (
+                <li key={scope.name} className="flex gap-2.5 text-sm">
+                  <CheckIcon size={16} className="mt-0.5 shrink-0 text-accent-text" />
+                  <span>
+                    {scope.description || scope.name}
+                    <span className="ml-1.5 font-mono text-xs text-subtle">{scope.name}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <p className="flex items-center gap-2 text-[13px] text-muted">
+          <ExternalIcon size={14} className="shrink-0" />
+          Vous serez redirigé vers <span className="font-medium text-fg">{redirectHost}</span>
+        </p>
+
+        {error && <Alert tone="danger">{error}</Alert>}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <Button variant="secondary" size="lg" onClick={() => submitDecision(false)} loading={submitting === 'deny'} disabled={submitting !== null}>
+            Refuser
+          </Button>
+          <Button size="lg" onClick={() => submitDecision(true)} loading={submitting === 'approve'} disabled={submitting !== null}>
+            Autoriser
+          </Button>
+        </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 

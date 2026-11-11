@@ -1,38 +1,57 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminApi } from '@/lib/adminApi';
 import { AdminUser } from '@/lib/types';
+import { formatDate } from '@/lib/format';
+import { Card, PageHeader } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Field';
+import { Alert, Badge, EmptyState, Skeleton } from '@/components/ui/Feedback';
+import { Table, Td, Th, Tr } from '@/components/ui/Table';
+import { SearchIcon, UserIcon } from '@/components/ui/Icons';
+import { useOverlay } from '@/components/ui/Overlays';
 
 export default function AdminUsersPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, user: me } = useAuth();
+  const { confirm, toast } = useOverlay();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
 
-  const load = () => {
+  const load = useCallback(() => {
     if (!accessToken) return;
     setLoading(true);
     AdminApi.listUsers(accessToken)
       .then((r) => setUsers(r.users))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  };
+  }, [accessToken]);
 
-  useEffect(load, [accessToken]);
+  useEffect(load, [load]);
 
   const toggleDisable = async (user: AdminUser) => {
     if (!accessToken) return;
-    if (!confirm(`${user.isDisabled ? 'Réactiver' : 'Désactiver'} ${user.email} ?`)) return;
+    const disabling = !user.isDisabled;
+    const ok = await confirm({
+      title: disabling ? `Désactiver ${user.email} ?` : `Réactiver ${user.email} ?`,
+      description: disabling
+        ? 'Ce compte ne pourra plus se connecter ni renouveler ses sessions. Vous pourrez le réactiver plus tard.'
+        : 'Ce compte pourra de nouveau se connecter.',
+      confirmLabel: disabling ? 'Désactiver' : 'Réactiver',
+      tone: disabling ? 'danger' : 'default',
+    });
+    if (!ok) return;
     setActing(user.id);
     try {
-      const { user: updated } = await AdminApi.updateUser(accessToken, user.id, !user.isDisabled);
+      const { user: updated } = await AdminApi.updateUser(accessToken, user.id, disabling);
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, isDisabled: updated.isDisabled } : u)));
+      toast(disabling ? 'Compte désactivé.' : 'Compte réactivé.');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Erreur');
+      toast(e instanceof Error ? e.message : 'L’action a échoué.', 'danger');
     } finally {
       setActing(null);
     }
@@ -40,104 +59,90 @@ export default function AdminUsersPage() {
 
   const deleteUser = async (user: AdminUser) => {
     if (!accessToken) return;
-    if (!confirm(`Supprimer définitivement ${user.email} ? Cette action est irréversible.`)) return;
+    const ok = await confirm({
+      title: `Supprimer ${user.email} ?`,
+      description: 'Le compte, ses sessions et ses autorisations seront effacés définitivement.',
+      confirmLabel: 'Supprimer',
+      tone: 'danger',
+      requireText: user.email,
+    });
+    if (!ok) return;
     setActing(user.id);
     try {
       await AdminApi.deleteUser(accessToken, user.id);
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      toast('Compte supprimé.');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Erreur');
+      toast(e instanceof Error ? e.message : 'La suppression a échoué.', 'danger');
     } finally {
       setActing(null);
     }
   };
 
-  const filtered = users.filter(
-    (u) =>
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      (u.username ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  const q = search.trim().toLowerCase();
+  const filtered = users.filter((u) => u.email.toLowerCase().includes(q) || (u.username ?? '').toLowerCase().includes(q));
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Utilisateurs</h1>
-        <span className="text-sm text-gray-400">{users.length} au total</span>
+    <div className="space-y-6">
+      <PageHeader title="Utilisateurs" description={loading ? 'Chargement…' : `${users.length.toLocaleString('fr-FR')} comptes`} />
+
+      <div className="relative max-w-sm">
+        <SearchIcon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+        <Input type="search" placeholder="Rechercher par e-mail ou nom" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" aria-label="Rechercher un utilisateur" />
       </div>
 
-      <input
-        type="text"
-        placeholder="Rechercher par email ou nom d'utilisateur..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-      />
+      {error && <Alert tone="danger">{error}</Alert>}
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-
-      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+      <Card>
         {loading ? (
-          <p className="px-6 py-8 text-gray-400 text-sm">Chargement...</p>
+          <div className="space-y-2 p-5">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
         ) : filtered.length === 0 ? (
-          <p className="px-6 py-8 text-gray-400 text-sm">Aucun utilisateur trouvé.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-700/50 text-gray-400 uppercase text-xs">
-                <tr>
-                  <th className="px-6 py-3 text-left">Email</th>
-                  <th className="px-6 py-3 text-left">Nom d'utilisateur</th>
-                  <th className="px-6 py-3 text-center">Sessions</th>
-                  <th className="px-6 py-3 text-center">Consentements</th>
-                  <th className="px-6 py-3 text-center">Statut</th>
-                  <th className="px-6 py-3 text-left">Créé le</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {filtered.map((u) => (
-                  <tr key={u.id} className={`hover:bg-gray-700/30 ${u.isDisabled ? 'opacity-50' : ''}`}>
-                    <td className="px-6 py-3 text-white font-medium">{u.email}</td>
-                    <td className="px-6 py-3 text-gray-400">{u.username ?? '—'}</td>
-                    <td className="px-6 py-3 text-center text-gray-300">{u._count.sessions}</td>
-                    <td className="px-6 py-3 text-center text-gray-300">{u._count.consents}</td>
-                    <td className="px-6 py-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${u.isDisabled ? 'bg-red-900/40 text-red-300' : 'bg-green-900/40 text-green-300'}`}>
-                        {u.isDisabled ? 'Désactivé' : 'Actif'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-gray-400 whitespace-nowrap">
-                      {new Date(u.createdAt).toLocaleDateString('fr-FR')}
-                    </td>
-                    <td className="px-6 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => toggleDisable(u)}
-                          disabled={acting === u.id}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${
-                            u.isDisabled
-                              ? 'bg-green-900/40 text-green-300 hover:bg-green-900/70'
-                              : 'bg-yellow-900/40 text-yellow-300 hover:bg-yellow-900/70'
-                          }`}
-                        >
-                          {u.isDisabled ? 'Réactiver' : 'Désactiver'}
-                        </button>
-                        <button
-                          onClick={() => deleteUser(u)}
-                          disabled={acting === u.id}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-900/40 text-red-300 hover:bg-red-900/70 transition-colors disabled:opacity-50"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="px-5">
+            <EmptyState icon={<UserIcon size={18} />} title={search ? 'Aucun résultat' : 'Aucun utilisateur'}>
+              {search && <>Aucun compte ne correspond à « {search} ».</>}
+            </EmptyState>
           </div>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Compte</Th>
+                <Th align="right">Sessions</Th>
+                <Th align="right">Applications</Th>
+                <Th>Statut</Th>
+                <Th>Inscrit le</Th>
+                <Th align="right"><span className="sr-only">Actions</span></Th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((u) => (
+                <Tr key={u.id} muted={u.isDisabled}>
+                  <Td>
+                    <p className="font-medium">{u.email}</p>
+                    <p className="text-[13px] text-muted">{u.username ?? '—'}</p>
+                  </Td>
+                  <Td align="right" className="tabular">{u._count.sessions}</Td>
+                  <Td align="right" className="tabular">{u._count.consents}</Td>
+                  <Td>{u.isDisabled ? <Badge tone="danger">Désactivé</Badge> : <Badge tone="accent">Actif</Badge>}</Td>
+                  <Td className="whitespace-nowrap text-muted">{formatDate(u.createdAt)}</Td>
+                  <Td align="right">
+                    {u.id !== me?.id && (
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" disabled={acting === u.id} onClick={() => toggleDisable(u)}>
+                          {u.isDisabled ? 'Réactiver' : 'Désactiver'}
+                        </Button>
+                        <Button variant="danger-ghost" size="sm" disabled={acting === u.id} onClick={() => deleteUser(u)}>
+                          Supprimer
+                        </Button>
+                      </div>
+                    )}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

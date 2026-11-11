@@ -85,6 +85,7 @@ export interface AdminClient {
   clientId: string;
   redirectUris: string[];
   allowedScopes: string[];
+  refreshTokenTtlDays: number;
   createdAt: string;
   updatedAt: string;
   _count: { consents: number; authCodes: number };

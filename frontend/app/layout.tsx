@@ -1,12 +1,25 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ThemeProvider, themeInitScript } from "@/contexts/ThemeContext";
+import { OverlayProvider } from "@/components/ui/Overlays";
 import Footer from "@/components/Footer";
 
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+
 export const metadata: Metadata = {
-  title: "MySSO - Authentication",
-  description: "Single Sign-On authentication system",
+  title: { default: "MySSO", template: "%s · MySSO" },
+  description: "Un seul compte pour se connecter à toutes les applications MySSO.",
+  robots: { index: false, follow: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f9fafb" },
+    { media: "(prefers-color-scheme: dark)", color: "#16181d" },
+  ],
 };
 
 export default function RootLayout({
@@ -15,14 +28,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased flex flex-col min-h-screen">
+    <html lang="fr" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className="flex min-h-dvh flex-col antialiased">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:shadow-[var(--shadow-pop)]"
+        >
+          Aller au contenu
+        </a>
         <ThemeProvider>
           <AuthProvider>
-            <div className="flex-1 flex flex-col">
-              {children}
-            </div>
-            <Footer />
+            <OverlayProvider>
+              <div className="flex flex-1 flex-col">{children}</div>
+              <Footer />
+            </OverlayProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

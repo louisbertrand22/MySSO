@@ -3,6 +3,10 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import AuthShell, { StatusIcon } from '@/components/AuthShell';
+import { ButtonLink } from '@/components/ui/Button';
+import { Spinner } from '@/components/ui/Feedback';
+import { AlertIcon } from '@/components/ui/Icons';
 
 /**
  * OAuth2 Callback Page Content
@@ -22,7 +26,7 @@ function CallbackPageContent() {
         const code = searchParams?.get('code');
         
         if (!code) {
-          setError('No authorization code received');
+          setError('Aucun code d’autorisation n’a été reçu.');
           setLoading(false);
           return;
         }
@@ -45,7 +49,7 @@ function CallbackPageContent() {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error_description || 'Token exchange failed');
+          throw new Error(errorData.error_description || 'L’échange du code a échoué.');
         }
 
         const data = await response.json();
@@ -57,11 +61,11 @@ function CallbackPageContent() {
           // Redirect to dashboard
           router.push('/dashboard');
         } else {
-          throw new Error('Invalid token response');
+          throw new Error('Réponse du serveur inattendue.');
         }
       } catch (err) {
         console.error('OAuth2 callback error:', err);
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
         setLoading(false);
       }
     };
@@ -71,50 +75,21 @@ function CallbackPageContent() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="mt-4 text-gray-600">Processing authorization...</p>
-        </div>
-      </div>
+      <AuthShell icon={<StatusIcon tone="neutral"><Spinner size={18} /></StatusIcon>} title="Connexion en cours…">
+        <p className="text-sm text-muted">Finalisation de l’autorisation.</p>
+      </AuthShell>
     );
   }
 
   if (error) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white shadow sm:rounded-lg p-6">
-          <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-              <svg
-                className="h-6 w-6 text-red-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </div>
-            <h3 className="mt-4 text-lg font-medium text-gray-900">
-              Authentication Failed
-            </h3>
-            <p className="mt-2 text-sm text-gray-500">{error}</p>
-            <div className="mt-6">
-              <button
-                onClick={() => router.push('/login')}
-                className="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Back to Login
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AuthShell
+        icon={<StatusIcon tone="danger"><AlertIcon size={20} /></StatusIcon>}
+        title="La connexion a échoué"
+        description={error}
+      >
+        <ButtonLink href="/login" className="w-full">Retour à la connexion</ButtonLink>
+      </AuthShell>
     );
   }
 
@@ -127,14 +102,7 @@ function CallbackPageContent() {
  */
 export default function CallbackPage() {
   return (
-    <Suspense fallback={
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<AuthShell title="Connexion en cours…"><Spinner /></AuthShell>}>
       <CallbackPageContent />
     </Suspense>
   );

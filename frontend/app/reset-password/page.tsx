@@ -2,7 +2,12 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import AuthShell, { StatusIcon } from '@/components/AuthShell';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { Field, PasswordInput } from '@/components/ui/Field';
+import { Alert } from '@/components/ui/Feedback';
+import { AlertIcon, CheckIcon } from '@/components/ui/Icons';
+import { passwordError } from '@/lib/password';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -10,7 +15,6 @@ function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
-
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,12 +23,13 @@ function ResetPasswordContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword !== confirm) {
-      setError('Les mots de passe ne correspondent pas.');
+    const policyError = passwordError(newPassword);
+    if (policyError) {
+      setError(policyError);
       return;
     }
-    if (newPassword.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères.');
+    if (newPassword !== confirm) {
+      setError('Les deux mots de passe sont différents.');
       return;
     }
     setLoading(true);
@@ -35,12 +40,12 @@ function ResetPasswordContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, newPassword }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error_description || 'Token invalide ou expiré');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error_description || 'Ce lien est invalide ou a expiré.');
       setDone(true);
       setTimeout(() => router.push('/login'), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur serveur');
+      setError(err instanceof Error ? err.message : 'Le serveur ne répond pas. Réessayez.');
     } finally {
       setLoading(false);
     }
@@ -48,82 +53,43 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <div className="text-center space-y-3">
-        <p className="text-red-400 font-semibold">Lien invalide</p>
-        <p className="text-sm text-gray-400">Ce lien de réinitialisation est manquant ou incorrect.</p>
-        <Link href="/forgot-password" className="text-indigo-400 hover:text-indigo-300 text-sm">
-          Faire une nouvelle demande
-        </Link>
-      </div>
+      <AuthShell
+        icon={<StatusIcon tone="danger"><AlertIcon size={20} /></StatusIcon>}
+        title="Lien incomplet"
+        description="Ce lien de réinitialisation est incomplet ou incorrect. Faites une nouvelle demande."
+      >
+        <ButtonLink href="/forgot-password" className="w-full">Nouvelle demande</ButtonLink>
+      </AuthShell>
+    );
+  }
+
+  if (done) {
+    return (
+      <AuthShell
+        icon={<StatusIcon tone="accent"><CheckIcon size={20} /></StatusIcon>}
+        title="Mot de passe modifié"
+        description="Toutes vos sessions ont été fermées par sécurité. Redirection vers la connexion…"
+      >
+        <ButtonLink href="/login" className="w-full">Se connecter</ButtonLink>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-gray-900 py-12 px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            Nouveau mot de passe
-          </h2>
-        </div>
-
-        <div className="bg-gray-800 py-8 px-6 shadow-lg rounded-xl">
-          {done ? (
-            <div className="text-center space-y-4">
-              <div className="w-14 h-14 bg-green-900/40 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <p className="text-white font-semibold">Mot de passe réinitialisé</p>
-              <p className="text-sm text-gray-400">
-                Toutes vos sessions ont été révoquées. Redirection vers la connexion…
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Nouveau mot de passe
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  placeholder="8 caractères minimum"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Confirmer le mot de passe
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  placeholder="Répétez le mot de passe"
-                />
-              </div>
-              {error && <p className="text-sm text-red-400">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white font-semibold rounded-xl shadow transition-all text-sm"
-              >
-                {loading ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}
-              </button>
-              <p className="text-center text-xs text-gray-500">
-                Ce lien expire après 1 heure et ne peut être utilisé qu'une seule fois.
-              </p>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
+    <AuthShell title="Nouveau mot de passe" description="Le lien expire au bout d’une heure et ne sert qu’une fois.">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <Alert tone="danger">{error}</Alert>}
+        <Field label="Nouveau mot de passe" hint="8 caractères minimum, avec une majuscule, une minuscule et un chiffre.">
+          <PasswordInput required autoComplete="new-password" autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+        </Field>
+        <Field label="Confirmer le mot de passe">
+          <PasswordInput required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        </Field>
+        <Button type="submit" size="lg" className="w-full" loading={loading}>
+          Enregistrer le mot de passe
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
 

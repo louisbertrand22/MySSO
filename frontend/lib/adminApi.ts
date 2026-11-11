@@ -64,7 +64,7 @@ export const AdminApi = {
   updateClient: (
     token: string,
     clientId: string,
-    updates: { name?: string; redirectUris?: string[]; allowedScopes?: string[] }
+    updates: { name?: string; redirectUris?: string[]; allowedScopes?: string[]; refreshTokenTtlDays?: number }
   ) =>
     adminFetch<{ client: AdminClient }>(`/admin/clients/${clientId}`, token, {
       method: 'PATCH',

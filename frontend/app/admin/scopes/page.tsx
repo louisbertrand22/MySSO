@@ -1,56 +1,71 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminApi } from '@/lib/adminApi';
 import { AdminScope } from '@/lib/types';
+import { formatDate } from '@/lib/format';
+import { Card, PageHeader } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Field, Input } from '@/components/ui/Field';
+import { Alert, EmptyState, Skeleton } from '@/components/ui/Feedback';
+import { Table, Td, Th, Tr } from '@/components/ui/Table';
+import { TagIcon } from '@/components/ui/Icons';
+import { useOverlay } from '@/components/ui/Overlays';
 
 export default function AdminScopesPage() {
   const { accessToken } = useAuth();
+  const { confirm, toast } = useOverlay();
   const [scopes, setScopes] = useState<AdminScope[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  // Create form
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
-
-  // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDesc, setEditDesc] = useState('');
 
-  const load = () => {
+  const load = useCallback(() => {
     if (!accessToken) return;
     setLoading(true);
     AdminApi.listScopes(accessToken)
       .then((r) => setScopes(r.scopes))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  };
+  }, [accessToken]);
 
-  useEffect(load, [accessToken]);
+  useEffect(load, [load]);
 
-  const createScope = async () => {
+  const createScope = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!accessToken || !newName.trim() || !newDesc.trim()) return;
+    setCreating(true);
     try {
       const { scope } = await AdminApi.createScope(accessToken, newName.trim(), newDesc.trim());
       setScopes((prev) => [...prev, scope].sort((a, b) => a.name.localeCompare(b.name)));
-      setNewName(''); setNewDesc('');
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Erreur');
+      setNewName('');
+      setNewDesc('');
+      toast(`Scope ${scope.name} ajouté.`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'L’ajout a échoué.', 'danger');
+    } finally {
+      setCreating(false);
     }
   };
 
-  const saveEdit = async (id: string) => {
+  const saveEdit = async (e: React.FormEvent, id: string) => {
+    e.preventDefault();
     if (!accessToken) return;
     setActing(id);
     try {
       const { scope } = await AdminApi.updateScope(accessToken, id, editDesc);
       setScopes((prev) => prev.map((s) => (s.id === id ? scope : s)));
       setEditingId(null);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Erreur');
+      toast('Description enregistrée.');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'L’enregistrement a échoué.', 'danger');
     } finally {
       setActing(null);
     }
@@ -58,105 +73,96 @@ export default function AdminScopesPage() {
 
   const deleteScope = async (scope: AdminScope) => {
     if (!accessToken) return;
-    if (!confirm(`Supprimer le scope "${scope.name}" ?`)) return;
+    const ok = await confirm({
+      title: `Supprimer le scope ${scope.name} ?`,
+      description: 'Les applications qui le demandent ne pourront plus l’obtenir.',
+      confirmLabel: 'Supprimer',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setActing(scope.id);
     try {
       await AdminApi.deleteScope(accessToken, scope.id);
       setScopes((prev) => prev.filter((s) => s.id !== scope.id));
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Erreur');
+      toast('Scope supprimé.');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'La suppression a échoué.', 'danger');
     } finally {
       setActing(null);
     }
   };
 
   return (
-    <div className="p-8 space-y-6">
-      <h1 className="text-2xl font-bold text-white">Scopes</h1>
+    <div className="space-y-6">
+      <PageHeader
+        title="Scopes"
+        description="Les permissions qu’une application peut demander. La description est celle que voient les utilisateurs sur l’écran d’autorisation."
+      />
 
-      {/* Create */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-gray-300">Nouveau scope</h2>
-        <div className="flex gap-3">
-          <input
-            placeholder="Nom (ex: read:reports)"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="w-48 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <input
-            placeholder="Description"
-            value={newDesc}
-            onChange={(e) => setNewDesc(e.target.value)}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <button
-            onClick={createScope}
-            disabled={!newName.trim() || !newDesc.trim()}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
-          >
-            Ajouter
-          </button>
-        </div>
-      </div>
+      <Card className="p-5">
+        <form onSubmit={createScope} className="grid gap-3 sm:grid-cols-[200px_1fr_auto] sm:items-end">
+          <Field label="Nom">
+            <Input placeholder="read:reports" value={newName} onChange={(e) => setNewName(e.target.value)} className="font-mono text-[13px]" />
+          </Field>
+          <Field label="Description affichée">
+            <Input placeholder="Lire vos rapports" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
+          </Field>
+          <Button type="submit" disabled={!newName.trim() || !newDesc.trim()} loading={creating}>Ajouter</Button>
+        </form>
+      </Card>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
-      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+      <Card>
         {loading ? (
-          <p className="px-6 py-8 text-gray-400 text-sm">Chargement...</p>
+          <div className="space-y-2 p-5">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
         ) : scopes.length === 0 ? (
-          <p className="px-6 py-8 text-gray-400 text-sm">Aucun scope défini.</p>
+          <div className="px-5"><EmptyState icon={<TagIcon size={18} />} title="Aucun scope défini" /></div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-700/50 text-gray-400 uppercase text-xs">
+          <Table>
+            <thead>
               <tr>
-                <th className="px-6 py-3 text-left">Nom</th>
-                <th className="px-6 py-3 text-left">Description</th>
-                <th className="px-6 py-3 text-left">Créé le</th>
-                <th className="px-6 py-3 text-right">Actions</th>
+                <Th>Nom</Th>
+                <Th>Description</Th>
+                <Th>Créé le</Th>
+                <Th align="right"><span className="sr-only">Actions</span></Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody>
               {scopes.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-700/30">
-                  <td className="px-6 py-3 text-indigo-300 font-mono font-semibold">{s.name}</td>
-                  <td className="px-6 py-3 text-gray-300">
+                <Tr key={s.id}>
+                  <Td className="whitespace-nowrap font-mono text-[13px] font-medium">{s.name}</Td>
+                  <Td className="w-full">
                     {editingId === s.id ? (
-                      <input
-                        value={editDesc}
-                        onChange={(e) => setEditDesc(e.target.value)}
-                        className="w-full px-2 py-1 bg-gray-700 border border-indigo-500 rounded text-white text-sm focus:outline-none"
-                        autoFocus
-                      />
+                      <form id={`edit-${s.id}`} onSubmit={(e) => saveEdit(e, s.id)}>
+                        <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="h-8" autoFocus aria-label={`Description de ${s.name}`} />
+                      </form>
                     ) : (
-                      s.description
+                      <span className="text-muted">{s.description}</span>
                     )}
-                  </td>
-                  <td className="px-6 py-3 text-gray-400 whitespace-nowrap">
-                    {new Date(s.createdAt).toLocaleDateString('fr-FR')}
-                  </td>
-                  <td className="px-6 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  </Td>
+                  <Td className="whitespace-nowrap text-muted">{formatDate(s.createdAt)}</Td>
+                  <Td align="right">
+                    <div className="flex justify-end gap-1">
                       {editingId === s.id ? (
                         <>
-                          <button onClick={() => saveEdit(s.id)} disabled={acting === s.id} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-900/40 text-green-300 hover:bg-green-900/70 disabled:opacity-50 transition-colors">Enregistrer</button>
-                          <button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors">Annuler</button>
+                          <Button type="submit" form={`edit-${s.id}`} size="sm" loading={acting === s.id}>Enregistrer</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>Annuler</Button>
                         </>
                       ) : (
                         <>
-                          <button onClick={() => { setEditingId(s.id); setEditDesc(s.description); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors">Modifier</button>
-                          <button onClick={() => deleteScope(s)} disabled={acting === s.id} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-900/40 text-red-300 hover:bg-red-900/70 disabled:opacity-50 transition-colors">Supprimer</button>
+                          <Button variant="ghost" size="sm" onClick={() => { setEditingId(s.id); setEditDesc(s.description); }}>Modifier</Button>
+                          <Button variant="danger-ghost" size="sm" disabled={acting === s.id} onClick={() => deleteScope(s)}>Supprimer</Button>
                         </>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

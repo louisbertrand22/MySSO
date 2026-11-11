@@ -4,24 +4,27 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminApi } from '@/lib/adminApi';
 import { AuditLog } from '@/lib/types';
+import { formatDate } from '@/lib/format';
+import { Card, PageHeader } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input, Select } from '@/components/ui/Field';
+import { Alert, Badge, EmptyState, Skeleton } from '@/components/ui/Feedback';
+import { Table, Td, Th, Tr } from '@/components/ui/Table';
+import { ArrowLeftIcon, ArrowRightIcon, ChevronRightIcon, ListIcon, RefreshIcon } from '@/components/ui/Icons';
 
-const EVENT_BADGE: Record<string, string> = {
-  LOGIN_SUCCESS: 'bg-green-900/40 text-green-300',
-  LOGIN_FAILURE: 'bg-red-900/40 text-red-300',
-  REGISTER: 'bg-blue-900/40 text-blue-300',
-  LOGOUT: 'bg-gray-700 text-gray-300',
-  TOKEN_GRANT: 'bg-indigo-900/40 text-indigo-300',
-  TOKEN_REVOCATION: 'bg-orange-900/40 text-orange-300',
-  SESSION_REVOCATION: 'bg-orange-900/40 text-orange-300',
-  CONSENT_REVOCATION: 'bg-yellow-900/40 text-yellow-300',
-  ADMIN_ACTION: 'bg-purple-900/40 text-purple-300',
+type Tone = 'neutral' | 'accent' | 'warning' | 'danger';
+
+const EVENTS: Record<string, { label: string; tone: Tone }> = {
+  LOGIN_SUCCESS: { label: 'Connexion', tone: 'accent' },
+  LOGIN_FAILURE: { label: 'Échec de connexion', tone: 'danger' },
+  REGISTER: { label: 'Inscription', tone: 'accent' },
+  LOGOUT: { label: 'Déconnexion', tone: 'neutral' },
+  TOKEN_GRANT: { label: 'Jeton émis', tone: 'neutral' },
+  TOKEN_REVOCATION: { label: 'Jeton révoqué', tone: 'warning' },
+  SESSION_REVOCATION: { label: 'Session fermée', tone: 'warning' },
+  CONSENT_REVOCATION: { label: 'Accès retiré', tone: 'warning' },
+  ADMIN_ACTION: { label: 'Action admin', tone: 'neutral' },
 };
-
-const ALL_EVENTS = [
-  'LOGIN_SUCCESS', 'LOGIN_FAILURE', 'REGISTER', 'LOGOUT',
-  'TOKEN_GRANT', 'TOKEN_REVOCATION', 'SESSION_REVOCATION',
-  'CONSENT_REVOCATION', 'ADMIN_ACTION',
-];
 
 export default function AdminAuditPage() {
   const { accessToken } = useAuth();
@@ -29,132 +32,116 @@ export default function AdminAuditPage() {
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterEvent, setFilterEvent] = useState('');
   const [filterUser, setFilterUser] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [reloads, setReloads] = useState(0);
 
-  const load = useCallback(() => {
+  // A request is identified by its parameters; "loading" = latest response is for older params
+  const requestKey = `${page}|${filterEvent}|${filterUser}|${reloads}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = loadedKey !== requestKey;
+
+  useEffect(() => {
     if (!accessToken) return;
-    setLoading(true);
+    let cancelled = false;
     AdminApi.getAuditLogs(accessToken, {
       page,
       limit: 50,
       event: filterEvent || undefined,
       userId: filterUser || undefined,
     })
-      .then((r) => { setLogs(r.logs); setTotal(r.total); setPages(r.pages); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [accessToken, page, filterEvent, filterUser]);
+      .then((r) => {
+        if (cancelled) return;
+        setLogs(r.logs); setTotal(r.total); setPages(r.pages); setError(null);
+      })
+      .catch((e) => !cancelled && setError(e.message))
+      .finally(() => !cancelled && setLoadedKey(requestKey));
+    return () => { cancelled = true; };
+  }, [accessToken, page, filterEvent, filterUser, requestKey]);
 
-  useEffect(() => { setPage(1); }, [filterEvent, filterUser]);
-  useEffect(load, [load]);
+  const load = useCallback(() => setReloads((n) => n + 1), []);
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Journal d'audit</h1>
-        <span className="text-sm text-gray-400">{total} entrées</span>
+    <div className="space-y-6">
+      <PageHeader
+        title="Journal d’audit"
+        description={`${total.toLocaleString('fr-FR')} événements enregistrés`}
+        actions={<Button variant="secondary" size="sm" onClick={load} loading={loading}><RefreshIcon size={15} /> Actualiser</Button>}
+      />
+
+      <div className="flex flex-wrap gap-3">
+        <div className="w-full sm:w-56">
+          <Select value={filterEvent} onChange={(e) => { setFilterEvent(e.target.value); setPage(1); }} aria-label="Type d’événement">
+            <option value="">Tous les événements</option>
+            {Object.entries(EVENTS).map(([value, { label }]) => <option key={value} value={value}>{label}</option>)}
+          </Select>
+        </div>
+        <div className="w-full sm:w-72">
+          <Input placeholder="Filtrer par ID utilisateur" value={filterUser} onChange={(e) => { setFilterUser(e.target.value); setPage(1); }} className="font-mono text-[13px]" aria-label="ID utilisateur" />
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
-        <select
-          value={filterEvent}
-          onChange={(e) => setFilterEvent(e.target.value)}
-          className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">Tous les événements</option>
-          {ALL_EVENTS.map((e) => <option key={e} value={e}>{e}</option>)}
-        </select>
-        <input
-          placeholder="Filtrer par User ID..."
-          value={filterUser}
-          onChange={(e) => setFilterUser(e.target.value)}
-          className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
-        />
-        <button onClick={load} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition-colors">
-          Actualiser
-        </button>
-      </div>
+      {error && <Alert tone="danger">{error}</Alert>}
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-
-      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-        {loading ? (
-          <p className="px-6 py-8 text-gray-400 text-sm">Chargement...</p>
+      <Card>
+        {loading && logs.length === 0 ? (
+          <div className="space-y-2 p-5">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
         ) : logs.length === 0 ? (
-          <p className="px-6 py-8 text-gray-400 text-sm">Aucun événement trouvé.</p>
+          <div className="px-5"><EmptyState icon={<ListIcon size={18} />} title="Aucun événement">Aucun événement ne correspond à ces filtres.</EmptyState></div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-700/50 text-gray-400 uppercase text-xs">
-                <tr>
-                  <th className="px-5 py-3 text-left">Horodatage</th>
-                  <th className="px-5 py-3 text-left">Événement</th>
-                  <th className="px-5 py-3 text-left">Email</th>
-                  <th className="px-5 py-3 text-left">IP</th>
-                  <th className="px-5 py-3 text-left">Données</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {logs.map((log) => (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Date</Th>
+                <Th>Événement</Th>
+                <Th>Utilisateur</Th>
+                <Th>IP</Th>
+                <Th align="right"><span className="sr-only">Détails</span></Th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => {
+                const event = EVENTS[log.event] ?? { label: log.event, tone: 'neutral' as Tone };
+                const open = expanded === log.id;
+                return (
                   <React.Fragment key={log.id}>
-                    <tr
-                      className="hover:bg-gray-700/30 cursor-pointer"
-                      onClick={() => setExpanded(expanded === log.id ? null : log.id)}
-                    >
-                      <td className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">
-                        {new Date(log.timestamp).toLocaleString('fr-FR')}
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${EVENT_BADGE[log.event] ?? 'bg-gray-700 text-gray-300'}`}>
-                          {log.event}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-gray-300 text-xs">{log.email ?? '—'}</td>
-                      <td className="px-5 py-3 text-gray-400 font-mono text-xs">{log.ip ?? '—'}</td>
-                      <td className="px-5 py-3 text-gray-500 text-xs">
-                        {log.data ? <span className="text-indigo-400">▶ voir détails</span> : '—'}
-                      </td>
-                    </tr>
-                    {expanded === log.id && log.data && (
-                      <tr key={`${log.id}-detail`} className="bg-gray-900">
-                        <td colSpan={5} className="px-5 py-3">
-                          <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
-                            {JSON.stringify(log.data, null, 2)}
-                          </pre>
+                    <Tr onClick={log.data ? () => setExpanded(open ? null : log.id) : undefined}>
+                      <Td className="tabular whitespace-nowrap text-[13px] text-muted">{formatDate(log.timestamp, true)}</Td>
+                      <Td><Badge tone={event.tone}>{event.label}</Badge></Td>
+                      <Td className="text-[13px]">{log.email ?? '—'}</Td>
+                      <Td className="font-mono text-xs text-muted">{log.ip ?? '—'}</Td>
+                      <Td align="right">
+                        {log.data && (
+                          <ChevronRightIcon size={16} className={`ml-auto text-subtle transition-transform ${open ? 'rotate-90' : ''}`} aria-label={open ? 'Masquer les détails' : 'Voir les détails'} />
+                        )}
+                      </Td>
+                    </Tr>
+                    {open && log.data && (
+                      <tr>
+                        <td colSpan={5} className="border-b border-line bg-surface-2/60 px-5 py-3">
+                          <pre className="overflow-x-auto font-mono text-xs leading-relaxed text-muted">{JSON.stringify(log.data, null, 2)}</pre>
                         </td>
                       </tr>
                     )}
                   </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </Table>
         )}
-      </div>
+      </Card>
 
-      {/* Pagination */}
       {pages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg disabled:opacity-40 hover:bg-gray-700 transition-colors"
-          >
-            ← Précédent
-          </button>
-          <span className="text-sm text-gray-400">Page {page} / {pages}</span>
-          <button
-            onClick={() => setPage((p) => Math.min(pages, p + 1))}
-            disabled={page === pages}
-            className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg disabled:opacity-40 hover:bg-gray-700 transition-colors"
-          >
-            Suivant →
-          </button>
+        <div className="flex items-center justify-between">
+          <Button variant="secondary" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+            <ArrowLeftIcon size={15} /> Précédent
+          </Button>
+          <span className="tabular text-sm text-muted">Page {page} sur {pages}</span>
+          <Button variant="secondary" size="sm" onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages}>
+            Suivant <ArrowRightIcon size={15} />
+          </Button>
         </div>
       )}
     </div>

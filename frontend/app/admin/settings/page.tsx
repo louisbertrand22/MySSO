@@ -3,14 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminApi } from '@/lib/adminApi';
+import { PageHeader, Section } from '@/components/ui/Card';
+import { Switch } from '@/components/ui/Field';
+import { Alert, Skeleton } from '@/components/ui/Feedback';
+import { useOverlay } from '@/components/ui/Overlays';
 
 export default function AdminSettingsPage() {
   const { accessToken } = useAuth();
+  const { toast } = useOverlay();
   const [requireEmailVerification, setRequireEmailVerification] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -20,74 +24,45 @@ export default function AdminSettingsPage() {
       .finally(() => setLoading(false));
   }, [accessToken]);
 
-  async function handleSave() {
+  // Settings are saved as soon as they change: no separate "Save" step to forget
+  const toggleEmailVerification = async (value: boolean) => {
     if (!accessToken) return;
+    const previous = requireEmailVerification;
+    setRequireEmailVerification(value);
     setSaving(true);
-    setError(null);
-    setSuccess(false);
     try {
-      const updated = await AdminApi.updateSettings(accessToken, { requireEmailVerification });
+      const updated = await AdminApi.updateSettings(accessToken, { requireEmailVerification: value });
       setRequireEmailVerification(updated.requireEmailVerification);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erreur inconnue');
+      toast(value ? 'Vérification de l’e-mail activée.' : 'Vérification de l’e-mail désactivée.');
+    } catch (e) {
+      setRequireEmailVerification(previous);
+      toast(e instanceof Error ? e.message : 'Le paramètre n’a pas pu être enregistré.', 'danger');
     } finally {
       setSaving(false);
     }
-  }
-
-  if (loading) return <div className="p-8 text-gray-400">Chargement...</div>;
+  };
 
   return (
-    <div className="p-8 max-w-2xl space-y-8">
-      <h1 className="text-2xl font-bold text-white">Paramètres</h1>
+    <div className="max-w-3xl space-y-6">
+      <PageHeader title="Paramètres" description="Les réglages s’appliquent immédiatement à tous les utilisateurs." />
 
-      <div className="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700">
-        <div className="px-6 py-4">
-          <h2 className="text-base font-semibold text-white">Inscription</h2>
-        </div>
+      {error && <Alert tone="danger">{error}</Alert>}
 
-        <div className="px-6 py-5 flex items-center justify-between gap-6">
-          <div>
-            <p className="text-sm font-medium text-white">Vérification d'email obligatoire</p>
-            <p className="mt-1 text-xs text-gray-400">
-              Si activé, les nouveaux utilisateurs doivent confirmer leur adresse e-mail avant de pouvoir se connecter.
+      <Section title="Inscription">
+        <div className="flex items-center justify-between gap-6 py-1">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Vérification de l’e-mail obligatoire</p>
+            <p className="text-sm text-muted">
+              Les nouveaux comptes doivent confirmer leur adresse e-mail avant de pouvoir se connecter.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setRequireEmailVerification((v) => !v)}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
-              requireEmailVerification ? 'bg-indigo-600' : 'bg-gray-600'
-            }`}
-            role="switch"
-            aria-checked={requireEmailVerification}
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                requireEmailVerification ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
+          {loading ? (
+            <Skeleton className="h-6 w-10 rounded-full" />
+          ) : (
+            <Switch label="Vérification de l’e-mail obligatoire" checked={requireEmailVerification} onChange={toggleEmailVerification} disabled={saving} />
+          )}
         </div>
-      </div>
-
-      {error && (
-        <p className="text-sm text-red-400">{error}</p>
-      )}
-      {success && (
-        <p className="text-sm text-green-400">Paramètres sauvegardés.</p>
-      )}
-
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving}
-        className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-semibold text-white transition-colors"
-      >
-        {saving ? 'Enregistrement...' : 'Enregistrer'}
-      </button>
+      </Section>
     </div>
   );
 }

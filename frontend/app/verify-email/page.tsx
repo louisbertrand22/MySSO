@@ -2,7 +2,10 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import AuthShell, { StatusIcon } from '@/components/AuthShell';
+import { ButtonLink } from '@/components/ui/Button';
+import { Spinner } from '@/components/ui/Feedback';
+import { AlertIcon, CheckIcon } from '@/components/ui/Icons';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -10,88 +13,48 @@ type Status = 'loading' | 'success' | 'error';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<Status>('loading');
-  const [message, setMessage] = useState('');
+  const token = searchParams.get('token');
+  const [result, setResult] = useState<{ status: Exclude<Status, 'loading'>; message: string } | null>(null);
+  const setStatus = (status: Exclude<Status, 'loading'>, message: string) => setResult({ status, message });
 
   useEffect(() => {
-    const token = searchParams.get('token');
-
-    if (!token) {
-      setStatus('error');
-      setMessage('Lien invalide — aucun token présent dans l\'URL.');
-      return;
-    }
-
+    if (!token) return;
     fetch(`${API_URL}/auth/verify-email?token=${encodeURIComponent(token)}`)
       .then(async (res) => {
-        const data = await res.json();
-        if (res.ok) {
-          setStatus('success');
-          setMessage(data.message || 'Adresse e-mail vérifiée avec succès.');
-        } else {
-          setStatus('error');
-          setMessage(data.error_description || 'Lien invalide ou expiré.');
-        }
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) setStatus('success', data.message || 'Votre adresse e-mail est confirmée.');
+        else setStatus('error', data.error_description || 'Ce lien est invalide ou a expiré.');
       })
-      .catch(() => {
-        setStatus('error');
-        setMessage('Erreur réseau. Réessayez plus tard.');
-      });
-  }, [searchParams]);
+      .catch(() => setStatus('error', 'Le serveur ne répond pas. Réessayez dans quelques instants.'));
+  }, [token]);
+
+  const status: Status = !token ? 'error' : result?.status ?? 'loading';
+  const message = !token ? 'Le lien ne contient pas de jeton de vérification.' : result?.message ?? '';
+
+  if (status === 'loading') {
+    return (
+      <AuthShell icon={<StatusIcon tone="neutral"><Spinner size={18} /></StatusIcon>} title="Vérification en cours…">
+        <p className="text-sm text-muted">Nous confirmons votre adresse e-mail.</p>
+      </AuthShell>
+    );
+  }
+
+  if (status === 'success') {
+    return (
+      <AuthShell icon={<StatusIcon tone="accent"><CheckIcon size={20} /></StatusIcon>} title="Adresse e-mail confirmée" description={message}>
+        <ButtonLink href="/login" size="lg" className="w-full">Se connecter</ButtonLink>
+      </AuthShell>
+    );
+  }
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-gray-900 py-12 px-4">
-      <div className="max-w-md w-full">
-        <div className="bg-gray-800 py-8 px-6 shadow-lg rounded-xl text-center space-y-5">
-          {status === 'loading' && (
-            <>
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-400 border-t-indigo-600 mx-auto" />
-              <p className="text-gray-400 text-sm">Vérification en cours...</p>
-            </>
-          )}
-
-          {status === 'success' && (
-            <>
-              <div className="w-16 h-16 bg-green-900/40 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-9 h-9 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-white font-semibold text-lg">E-mail vérifié !</p>
-                <p className="text-sm text-gray-400 mt-1">{message}</p>
-              </div>
-              <Link
-                href="/login"
-                className="inline-block py-2.5 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow transition-all text-sm"
-              >
-                Se connecter
-              </Link>
-            </>
-          )}
-
-          {status === 'error' && (
-            <>
-              <div className="w-16 h-16 bg-red-900/40 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-9 h-9 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-white font-semibold text-lg">Lien invalide</p>
-                <p className="text-sm text-gray-400 mt-1">{message}</p>
-              </div>
-              <Link
-                href="/login"
-                className="inline-block text-sm text-indigo-400 hover:text-indigo-300 font-medium"
-              >
-                ← Retour à la connexion
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    <AuthShell
+      icon={<StatusIcon tone="danger"><AlertIcon size={20} /></StatusIcon>}
+      title="Lien invalide"
+      description={<>{message} Connectez-vous pour recevoir un nouveau lien.</>}
+    >
+      <ButtonLink href="/login" variant="secondary" className="w-full">Retour à la connexion</ButtonLink>
+    </AuthShell>
   );
 }
 

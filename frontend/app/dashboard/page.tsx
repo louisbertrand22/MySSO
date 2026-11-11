@@ -4,47 +4,170 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import AppHeader, { Avatar, THEME_OPTIONS } from '@/components/AppHeader';
 import ConsentsManager from '@/components/ConsentsManager';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
+import { Section, Row } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input, Segmented } from '@/components/ui/Field';
+import { Alert, EmptyState, PageLoader, Skeleton } from '@/components/ui/Feedback';
+import { CopyIcon, DeviceIcon, PhoneIcon } from '@/components/ui/Icons';
+import { useOverlay } from '@/components/ui/Overlays';
 import { ApiService } from '@/lib/api';
 import { validateUsername } from '@/lib/validation';
+import { formatDate, parseDevice, timeAgo } from '@/lib/format';
 import type { SessionInfo } from '@/lib/types';
 
-function parseDevice(ua: string | null): { browser: string; os: string } {
-  if (!ua) return { browser: 'Navigateur inconnu', os: 'OS inconnu' };
-  let browser = 'Navigateur inconnu';
-  let os = 'OS inconnu';
+const SECTIONS = [
+  { id: 'profil', label: 'Profil' },
+  { id: 'securite', label: 'Sécurité' },
+  { id: 'applications', label: 'Applications' },
+  { id: 'preferences', label: 'Préférences' },
+];
 
-  if (/Edg\//.test(ua)) browser = 'Edge';
-  else if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) browser = 'Chrome';
-  else if (/Firefox\//.test(ua)) browser = 'Firefox';
-  else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = 'Safari';
-  else if (/OPR\/|Opera\//.test(ua)) browser = 'Opera';
+function UsernameRow() {
+  const { user, accessToken, refreshAccessToken } = useAuth();
+  const { toast } = useOverlay();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  if (/Windows/.test(ua)) os = 'Windows';
-  else if (/Macintosh|Mac OS X/.test(ua)) os = 'macOS';
-  else if (/Linux/.test(ua) && !/Android/.test(ua)) os = 'Linux';
-  else if (/Android/.test(ua)) os = 'Android';
-  else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+  if (!user) return null;
 
-  return { browser, os };
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessToken) return;
+    const validation = validateUsername(value);
+    if (!validation.isValid) {
+      setError(validation.error || 'Nom d’utilisateur invalide.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await ApiService.updateProfile(accessToken, value);
+      await refreshAccessToken(); // the username lives in the access token
+      setEditing(false);
+      toast('Nom d’utilisateur enregistré.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Le nom d’utilisateur n’a pas pu être enregistré.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <form onSubmit={save} className="space-y-2">
+        <div className="flex max-w-sm gap-2">
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="camille_r"
+            disabled={saving}
+            autoFocus
+            aria-label="Nom d’utilisateur"
+            aria-invalid={error ? true : undefined}
+            className="h-8"
+          />
+          <Button type="submit" size="sm" loading={saving}>Enregistrer</Button>
+          <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setError(''); }} disabled={saving}>Annuler</Button>
+        </div>
+        {error ? <p className="text-[13px] text-danger-text">{error}</p> : <p className="text-[13px] text-muted">3 à 20 caractères : lettres, chiffres, _ et -.</p>}
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className={user.username ? '' : 'text-muted'}>{user.username || 'Non défini'}</span>
+      <Button variant="secondary" size="sm" onClick={() => { setValue(user.username || ''); setEditing(true); }}>
+        {user.username ? 'Modifier' : 'Définir'}
+      </Button>
+    </div>
+  );
+}
+
+function SessionsList({ accessToken }: { accessToken: string }) {
+  const { confirm, toast } = useOverlay();
+  const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
+  const [error, setError] = useState('');
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  useEffect(() => {
+    ApiService.getSessions(accessToken)
+      .then((data) => setSessions(data.sessions))
+      .catch(() => setError('Les sessions n’ont pas pu être chargées.'));
+  }, [accessToken]);
+
+  const revoke = async (session: SessionInfo) => {
+    const { browser, os } = parseDevice(session.userAgent);
+    const ok = await confirm({
+      title: 'Fermer cette session ?',
+      description: `${browser} sur ${os} sera déconnecté. Si c’est l’appareil que vous utilisez, vous devrez vous reconnecter.`,
+      confirmLabel: 'Fermer la session',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setRevoking(session.id);
+    try {
+      await ApiService.revokeSession(accessToken, session.id);
+      setSessions((prev) => prev?.filter((s) => s.id !== session.id) ?? null);
+      toast('Session fermée.');
+    } catch {
+      toast('La session n’a pas pu être fermée.', 'danger');
+    } finally {
+      setRevoking(null);
+    }
+  };
+
+  if (error) return <Alert tone="danger">{error}</Alert>;
+  if (!sessions) {
+    return (
+      <div className="space-y-3 py-1">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+  if (sessions.length === 0) {
+    return <EmptyState icon={<DeviceIcon size={18} />} title="Aucune session ouverte" />;
+  }
+
+  return (
+    <ul className="-my-1 divide-y divide-line">
+      {sessions.map((session) => {
+        const { browser, os, mobile } = parseDevice(session.userAgent);
+        const Icon = mobile ? PhoneIcon : DeviceIcon;
+        return (
+          <li key={session.id} className="flex items-center justify-between gap-4 py-3.5">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-surface-2 text-muted">
+                <Icon size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{browser} · {os}</p>
+                <p className="truncate text-[13px] text-muted">
+                  Actif {timeAgo(session.lastSeenAt)} · <span className="font-mono text-xs">{session.ip ?? 'IP inconnue'}</span>
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" loading={revoking === session.id} onClick={() => revoke(session)}>
+              Fermer
+            </Button>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, accessToken, isLoading, logout, refreshAccessToken } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const [editingUsername, setEditingUsername] = useState(false);
-  const [newUsername, setNewUsername] = useState('');
-  const [usernameError, setUsernameError] = useState('');
-  const [usernameSaving, setUsernameSaving] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState('');
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [revokingSession, setRevokingSession] = useState<string | null>(null);
+  const { user, accessToken, isLoading, logout } = useAuth();
+  const { preference, setPreference } = useTheme();
+  const { confirm, toast } = useOverlay();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -52,470 +175,103 @@ export default function DashboardPage() {
     }
   }, [user, isLoading, router]);
 
-  useEffect(() => {
-    if (!accessToken) return;
-    setSessionsLoading(true);
-    ApiService.getSessions(accessToken)
-      .then((data) => setSessions(data.sessions))
-      .catch(() => setSessions([]))
-      .finally(() => setSessionsLoading(false));
-  }, [accessToken]);
-
-  const handleRevokeSession = async (sessionId: string) => {
-    if (!accessToken) return;
-    setRevokingSession(sessionId);
+  const copyId = async () => {
+    if (!user) return;
     try {
-      await ApiService.revokeSession(accessToken, sessionId);
-      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      await navigator.clipboard.writeText(user.id);
+      toast('Identifiant copié.');
     } catch {
-      // silent
-    } finally {
-      setRevokingSession(null);
+      toast('La copie a échoué.', 'danger');
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.push('/login');
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!accessToken || deleteConfirm !== user?.email) return;
-    setDeleting(true);
-    setDeleteError('');
+  const deleteAccount = async () => {
+    if (!user || !accessToken) return;
+    const ok = await confirm({
+      title: 'Supprimer définitivement votre compte ?',
+      description: 'Vos sessions, accès accordés aux applications et données de profil seront effacés. Cette action est irréversible.',
+      confirmLabel: 'Supprimer mon compte',
+      tone: 'danger',
+      requireText: user.email,
+    });
+    if (!ok) return;
     try {
       await ApiService.deleteAccount(accessToken);
       await logout();
       router.push('/login');
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Erreur lors de la suppression');
-      setDeleting(false);
+      toast(err instanceof Error ? err.message : 'Le compte n’a pas pu être supprimé.', 'danger');
     }
   };
 
-  const handleEditUsername = () => {
-    setNewUsername(user?.username || '');
-    setEditingUsername(true);
-    setUsernameError('');
-  };
-
-  const handleCancelEdit = () => {
-    setEditingUsername(false);
-    setNewUsername('');
-    setUsernameError('');
-  };
-
-  const handleSaveUsername = async () => {
-    if (!accessToken) return;
-    
-    // Validate username
-    const validation = validateUsername(newUsername);
-    if (!validation.isValid) {
-      setUsernameError(validation.error || 'Invalid username');
-      return;
-    }
-
-    setUsernameSaving(true);
-    setUsernameError('');
-
-    try {
-      await ApiService.updateProfile(accessToken, newUsername);
-      // Refresh the access token to get the updated username
-      await refreshAccessToken();
-      setEditingUsername(false);
-      setNewUsername('');
-    } catch (error) {
-      if (error instanceof Error) {
-        setUsernameError(error.message);
-      } else {
-        setUsernameError('Failed to update username');
-      }
-    } finally {
-      setUsernameSaving(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-indigo-400 border-t-indigo-600 shadow-lg"></div>
-          <p className="mt-6 text-gray-200 font-semibold text-lg">Chargement de votre tableau de bord...</p>
-        </div>
-      </div>
-    );
+  if (isLoading || !user) {
+    return <PageLoader label="Chargement de votre compte…" />;
   }
 
-  if (!user) {
-    return null;
-  }
+  const name = user.username || user.email.split('@')[0];
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-300">
-      <nav className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <h1 className="text-base sm:text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">Tableau de bord MySSO</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {user.scopes?.includes('admin') && (
-                <a
-                  href="/admin"
-                  className="px-3 py-2 sm:px-4 border border-indigo-500 rounded-xl text-xs sm:text-sm font-semibold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all duration-200"
-                >
-                  Admin
-                </a>
-              )}
-              <button
-                onClick={toggleTheme}
-                title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-                className="p-2 rounded-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-200/80 dark:bg-gray-700/50 hover:bg-gray-300/80 dark:hover:bg-gray-600/50 transition-all duration-200"
-              >
-                {theme === 'dark' ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="ml-3 px-3 py-2 sm:px-6 sm:py-2.5 border border-transparent rounded-xl shadow-lg text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 hover:shadow-xl whitespace-nowrap"
-              >
-                Déconnexion
-              </button>
-            </div>
+    <div className="flex flex-1 flex-col">
+      <AppHeader />
+
+      <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-5 pb-20 pt-10 sm:px-8">
+        <div className="flex items-center gap-4">
+          <Avatar name={name} size={52} />
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-semibold tracking-tight">Bonjour, {name}</h1>
+            <p className="truncate text-sm text-muted">{user.email}</p>
           </div>
         </div>
-      </nav>
 
-      <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8 w-full">
-        <div className="px-4 py-6 sm:px-0 space-y-6">
-          {/* User Information Card */}
-          <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-200/50 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300">
-            <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border-b border-gray-200 dark:border-gray-700/50">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-xl leading-6 font-bold text-gray-900 dark:text-gray-100">
-                    Informations utilisateur
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Les détails de votre compte
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="divide-y divide-gray-200 dark:divide-gray-700/50">
-              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                    </svg>
-                    ID Utilisateur
-                  </dt>
-                  <dd className="mt-2 text-sm text-gray-700 dark:text-gray-200 sm:mt-0 sm:col-span-2 font-mono bg-gray-100 dark:bg-gray-700/70 px-3 py-2 rounded-lg">
-                    {user.id}
-                  </dd>
-                </div>
-              </div>
-              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Adresse e-mail
-                  </dt>
-                  <dd className="mt-2 text-sm text-gray-800 dark:text-gray-200 sm:mt-0 sm:col-span-2 font-medium">
-                    {user.email}
-                  </dd>
-                </div>
-              </div>
-              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Nom d'utilisateur
-                  </dt>
-                  <dd className="mt-2 text-sm sm:mt-0 sm:col-span-2">
-                    {editingUsername ? (
-                      <div className="space-y-2">
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newUsername}
-                            onChange={(e) => setNewUsername(e.target.value)}
-                            className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            placeholder="Entrez le nom d'utilisateur"
-                            disabled={usernameSaving}
-                          />
-                          <button
-                            onClick={handleSaveUsername}
-                            disabled={usernameSaving}
-                            className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed font-semibold shadow-lg transition-all duration-200 hover:shadow-xl"
-                          >
-                            {usernameSaving ? 'Enregistrement...' : 'Enregistrer'}
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            disabled={usernameSaving}
-                            className="px-5 py-2.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow transition-all duration-200"
-                          >
-                            Annuler
-                          </button>
-                        </div>
-                        {usernameError && (
-                          <p className="text-sm text-red-400 flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                            {usernameError}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <span className="text-gray-800 dark:text-gray-200 font-medium">
-                          {user.username || 'Non défini'}
-                        </span>
-                        <button
-                          onClick={handleEditUsername}
-                          className="text-indigo-400 hover:text-indigo-300 text-sm font-semibold flex items-center gap-1 hover:gap-2 transition-all duration-200"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          {user.username ? 'Modifier' : 'Définir un nom d\'utilisateur'}
-                        </button>
-                      </div>
-                    )}
-                  </dd>
-                </div>
-              </div>
-              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    Compte créé le
-                  </dt>
-                  <dd className="mt-2 text-sm text-gray-800 dark:text-gray-200 sm:mt-0 sm:col-span-2 font-medium">
-                    {new Date(user.createdAt).toLocaleString('fr-FR')}
-                  </dd>
-                </div>
-              </div>
-              <div className="px-6 py-5 sm:px-8 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                    </svg>
-                    Mot de passe
-                  </dt>
-                  <dd className="mt-2 sm:mt-0 sm:col-span-2">
-                    {accessToken && <ChangePasswordForm accessToken={accessToken} />}
-                  </dd>
-                </div>
-              </div>
-            </div>
-          </div>
+        <nav aria-label="Sections du compte" className="sticky top-14 z-20 mt-8 flex gap-1 overflow-x-auto border-b border-line bg-bg/85 backdrop-blur-md">
+          {SECTIONS.map((s) => (
+            <a key={s.id} href={`#${s.id}`} className="whitespace-nowrap border-b-2 border-transparent px-2.5 pb-2.5 pt-3 text-sm text-muted transition-colors hover:border-line-strong hover:text-fg">
+              {s.label}
+            </a>
+          ))}
+        </nav>
 
-          {/* Active Sessions Card */}
-          <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-200/50 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300">
-            <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-b border-gray-200 dark:border-gray-700/50">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-xl leading-6 font-bold text-gray-900 dark:text-gray-100">
-                    Sessions actives
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Appareils connectés à votre compte
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-5 sm:px-8">
-              {sessionsLoading ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Chargement...</p>
-              ) : sessions.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Aucune session active.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {sessions.map((session) => {
-                    const { browser, os } = parseDevice(session.userAgent);
-                    return (
-                      <li
-                        key={session.id}
-                        className="flex items-start justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-200 dark:border-gray-600/30"
-                      >
-                        <div className="flex items-start gap-3 min-w-0">
-                          <div className="mt-0.5 flex-shrink-0 h-3 w-3 rounded-full bg-green-500 shadow shadow-green-500/50 animate-pulse" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                              {browser} · {os}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                              IP : {session.ip ?? 'inconnue'}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Connecté le {new Date(session.createdAt).toLocaleString('fr-FR')}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Dernière activité : {new Date(session.lastSeenAt).toLocaleString('fr-FR')}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleRevokeSession(session.id)}
-                          disabled={revokingSession === session.id}
-                          className="shrink-0 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-40 transition-colors"
-                        >
-                          {revokingSession === session.id ? '...' : 'Révoquer'}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </div>
+        <div className="mt-8 space-y-6">
+          <Section id="profil" title="Profil" description="Les informations partagées avec les applications que vous autorisez.">
+            <dl>
+              <Row label="Nom d’utilisateur"><UsernameRow /></Row>
+              <Row label="Adresse e-mail">{user.email}</Row>
+              <Row label="Membre depuis">{formatDate(user.createdAt)}</Row>
+              <Row label="Identifiant" last>
+                <button type="button" onClick={copyId} className="group inline-flex max-w-full items-center gap-2 font-mono text-xs text-muted hover:text-fg" title="Copier l’identifiant">
+                  <span className="truncate">{user.id}</span>
+                  <CopyIcon size={14} className="shrink-0 opacity-60 group-hover:opacity-100" />
+                </button>
+              </Row>
+            </dl>
+          </Section>
 
-          {/* Danger Zone Card */}
-          <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-red-200/50 dark:border-red-900/40 hover:shadow-2xl transition-all duration-300">
-            <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-red-500/10 to-rose-500/10 border-b border-red-200 dark:border-red-900/40">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-rose-700 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-xl leading-6 font-bold text-red-600 dark:text-red-300">Zone dangereuse</h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Actions irréversibles sur votre compte</p>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-6 sm:px-8 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Supprimer mon compte</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Supprime définitivement votre compte, vos sessions, tokens et consentements (RGPD Art. 17).
-                </p>
-              </div>
-              <button
-                onClick={() => { setShowDeleteModal(true); setDeleteConfirm(''); setDeleteError(''); }}
-                className="shrink-0 px-4 py-2 bg-red-700 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors shadow"
-              >
-                Supprimer
-              </button>
-            </div>
-          </div>
+          <Section id="securite" title="Sécurité" description="Votre mot de passe et les appareils connectés à votre compte.">
+            <dl>
+              <Row label="Mot de passe">{accessToken && <ChangePasswordForm accessToken={accessToken} />}</Row>
+            </dl>
+            <h3 className="mb-1 mt-5 text-sm font-medium">Sessions ouvertes</h3>
+            <p className="mb-2 text-[13px] text-muted">Fermez les sessions que vous ne reconnaissez pas.</p>
+            {accessToken && <SessionsList accessToken={accessToken} />}
+          </Section>
 
-          {/* Authorized Applications Card */}
-          <div className="bg-white/80 dark:bg-gray-800/70 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden border border-gray-200/50 dark:border-gray-700/20 hover:shadow-2xl transition-all duration-300">
-            <div className="px-6 py-5 sm:px-8 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-b border-gray-200 dark:border-gray-700/50">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-xl leading-6 font-bold text-gray-900 dark:text-gray-100">
-                    Applications autorisées
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Gérez les applications tierces qui ont accès à votre compte
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-5 sm:px-8">
-              {accessToken ? (
-                <ConsentsManager accessToken={accessToken} />
-              ) : (
-                <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                  Chargement...
-                </div>
-              )}
-            </div>
-          </div>
+          <Section id="applications" title="Applications autorisées" description="Les applications qui peuvent utiliser votre compte MySSO.">
+            {accessToken && <ConsentsManager accessToken={accessToken} />}
+          </Section>
+
+          <Section id="preferences" title="Préférences">
+            <dl>
+              <Row label="Thème" last>
+                <Segmented label="Thème" value={preference} onChange={setPreference} options={THEME_OPTIONS} />
+              </Row>
+            </dl>
+          </Section>
+
+          <Section title="Supprimer le compte" tone="danger" description="Efface votre compte et toutes les données associées (RGPD, art. 17).">
+            <Button variant="danger" size="sm" onClick={deleteAccount}>Supprimer mon compte</Button>
+          </Section>
         </div>
       </main>
-
-      {/* Delete Account Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-gray-800 border border-red-900/50 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-700 rounded-xl flex items-center justify-center shrink-0">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-bold text-white">Supprimer mon compte</h2>
-            </div>
-            <p className="text-sm text-gray-300">
-              Cette action est <span className="text-red-400 font-semibold">irréversible</span>. Toutes vos données seront supprimées définitivement (sessions, tokens, consentements).
-            </p>
-            <div className="space-y-2">
-              <label className="text-xs text-gray-400">
-                Tapez votre adresse e-mail <span className="text-white font-mono">{user?.email}</span> pour confirmer :
-              </label>
-              <input
-                type="email"
-                value={deleteConfirm}
-                onChange={(e) => setDeleteConfirm(e.target.value)}
-                placeholder={user?.email}
-                disabled={deleting}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-            {deleteError && <p className="text-sm text-red-400">{deleteError}</p>}
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                disabled={deleting}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-semibold rounded-xl transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleting || deleteConfirm !== user?.email}
-                className="px-4 py-2 bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors"
-              >
-                {deleting ? 'Suppression...' : 'Supprimer définitivement'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,14 +4,17 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import AppHeader from '@/components/AppHeader';
+import { PageLoader } from '@/components/ui/Feedback';
+import { AppsIcon, ChartIcon, ListIcon, SlidersIcon, TagIcon, UserIcon } from '@/components/ui/Icons';
 
 const NAV = [
-  { href: '/admin', label: 'Tableau de bord', icon: '📊' },
-  { href: '/admin/users', label: 'Utilisateurs', icon: '👥' },
-  { href: '/admin/clients', label: 'Applications', icon: '🔐' },
-  { href: '/admin/scopes', label: 'Scopes', icon: '🏷️' },
-  { href: '/admin/audit', label: 'Journal d\'audit', icon: '📋' },
-  { href: '/admin/settings', label: 'Paramètres', icon: '⚙️' },
+  { href: '/admin', label: 'Vue d’ensemble', icon: ChartIcon },
+  { href: '/admin/users', label: 'Utilisateurs', icon: UserIcon },
+  { href: '/admin/clients', label: 'Applications', icon: AppsIcon },
+  { href: '/admin/scopes', label: 'Scopes', icon: TagIcon },
+  { href: '/admin/audit', label: 'Journal', icon: ListIcon },
+  { href: '/admin/settings', label: 'Paramètres', icon: SlidersIcon },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -27,52 +30,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [user, isLoading, router]);
 
   if (isLoading || !user?.scopes?.includes('admin')) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-gray-900 min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-400 border-t-indigo-600" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-900">
-      {/* Sidebar */}
-      <aside className="w-56 bg-gray-800 border-r border-gray-700 flex flex-col shrink-0">
-        <div className="px-5 py-6 border-b border-gray-700">
-          <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest">Admin Panel</p>
-          <p className="mt-1 text-xs text-gray-500 truncate">{user.email}</p>
-        </div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {NAV.map(({ href, label, icon }) => {
-            const active = pathname === href;
+    <div className="flex flex-1 flex-col">
+      <AppHeader>
+        <nav aria-label="Administration" className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-5 sm:px-8">
+          {NAV.map(({ href, label, icon: Icon }) => {
+            const active = href === '/admin' ? pathname === href : pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                aria-current={active ? 'page' : undefined}
+                className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-2.5 pb-2.5 pt-2 text-sm transition-colors ${
+                  active ? 'border-accent font-medium text-fg' : 'border-transparent text-muted hover:border-line-strong hover:text-fg'
                 }`}
               >
-                <span>{icon}</span>
+                <Icon size={16} />
                 {label}
               </Link>
             );
           })}
         </nav>
-        <div className="px-3 py-4 border-t border-gray-700">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
-          >
-            <span>←</span> Retour au dashboard
-          </Link>
-        </div>
-      </aside>
-
-      {/* Content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      </AppHeader>
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-5 pb-20 pt-8 sm:px-8">{children}</main>
     </div>
   );
 }
