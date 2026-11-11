@@ -1,3 +1,4 @@
+import { authAwareFetch } from './authEvents';
 import {
   LoginCredentials,
   RegisterCredentials,
@@ -18,7 +19,7 @@ export class ApiService {
    * Register a new user
    */
   static async register(credentials: RegisterCredentials): Promise<RegisterResponse> {
-    const response = await fetch(`${API_URL}/auth/register`, {
+    const response = await authAwareFetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -38,7 +39,7 @@ export class ApiService {
    * Login user
    */
   static async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await authAwareFetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,7 +59,7 @@ export class ApiService {
    * Refresh access token
    */
   static async refresh(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
+    const response = await authAwareFetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -78,7 +79,7 @@ export class ApiService {
    * Logout user
    */
   static async logout(refreshToken: string): Promise<void> {
-    const response = await fetch(`${API_URL}/auth/logout`, {
+    const response = await authAwareFetch(`${API_URL}/auth/logout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -124,7 +125,7 @@ export class ApiService {
    * Get user consents
    */
   static async getConsents(accessToken: string): Promise<ConsentsResponse> {
-    const response = await fetch(`${API_URL}/user/consents`, {
+    const response = await authAwareFetch(`${API_URL}/user/consents`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -144,7 +145,7 @@ export class ApiService {
    * Revoke consent for a client
    */
   static async revokeConsent(accessToken: string, clientId: string): Promise<void> {
-    const response = await fetch(`${API_URL}/user/consents/${clientId}`, {
+    const response = await authAwareFetch(`${API_URL}/user/consents/${clientId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -162,7 +163,7 @@ export class ApiService {
    * Delete own account (GDPR)
    */
   static async deleteAccount(accessToken: string): Promise<void> {
-    const response = await fetch(`${API_URL}/user/account`, {
+    const response = await authAwareFetch(`${API_URL}/user/account`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
@@ -177,7 +178,7 @@ export class ApiService {
    * Change password
    */
   static async changePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<void> {
-    const response = await fetch(`${API_URL}/user/password`, {
+    const response = await authAwareFetch(`${API_URL}/user/password`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -196,7 +197,7 @@ export class ApiService {
    * Resend email verification link
    */
   static async resendVerification(email: string): Promise<void> {
-    const response = await fetch(`${API_URL}/auth/resend-verification`, {
+    const response = await authAwareFetch(`${API_URL}/auth/resend-verification`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -212,7 +213,7 @@ export class ApiService {
    * Get active sessions
    */
   static async getSessions(accessToken: string): Promise<SessionsResponse> {
-    const response = await fetch(`${API_URL}/user/sessions`, {
+    const response = await authAwareFetch(`${API_URL}/user/sessions`, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
 
@@ -228,7 +229,7 @@ export class ApiService {
    * Revoke a specific session
    */
   static async revokeSession(accessToken: string, sessionId: string): Promise<void> {
-    const response = await fetch(`${API_URL}/user/sessions/${sessionId}`, {
+    const response = await authAwareFetch(`${API_URL}/user/sessions/${sessionId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
@@ -243,7 +244,7 @@ export class ApiService {
    * Revoke every session except the current one. Returns how many were closed.
    */
   static async revokeOtherSessions(accessToken: string): Promise<number> {
-    const response = await fetch(`${API_URL}/user/sessions`, {
+    const response = await authAwareFetch(`${API_URL}/user/sessions`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
@@ -261,7 +262,7 @@ export class ApiService {
    * Update user profile (username)
    */
   static async updateProfile(accessToken: string, username: string): Promise<{ user: User }> {
-    const response = await fetch(`${API_URL}/user/profile`, {
+    const response = await authAwareFetch(`${API_URL}/user/profile`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

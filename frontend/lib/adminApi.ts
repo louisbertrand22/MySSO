@@ -1,3 +1,4 @@
+import { authAwareFetch } from './authEvents';
 import {
   AdminUser,
   AdminUserDetail,
@@ -14,7 +15,7 @@ async function adminFetch<T>(
   token: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await authAwareFetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

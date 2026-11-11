@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config/env';
@@ -12,20 +13,41 @@ export class JwtService {
   private static publicKey: Buffer | null = null;
 
   /**
-   * Load RSA keys from the keys directory
+   * Load the RSA signing keys.
+   *
+   * Production must set JWT_PRIVATE_KEY (PEM, or the PEM encoded in base64): the keys/
+   * directory is regenerated on every Vercel build, which would invalidate every token
+   * (sessions, refresh tokens of OAuth clients, JWKS) at each deployment.
+   * The public key is derived from the private key unless JWT_PUBLIC_KEY is also set.
+   * Without the variable, keys are read from KEYS_DIR (local development).
    */
   private static loadKeys(): void {
-    if (!this.privateKey || !this.publicKey) {
-      const privateKeyPath = path.join(config.keysDir, 'private.pem');
-      const publicKeyPath = path.join(config.keysDir, 'public.pem');
+    if (this.privateKey && this.publicKey) return;
 
-      if (!fs.existsSync(privateKeyPath) || !fs.existsSync(publicKeyPath)) {
-        throw new Error('RSA keys not found. Please run npm install to generate keys.');
-      }
-
-      this.privateKey = fs.readFileSync(privateKeyPath);
-      this.publicKey = fs.readFileSync(publicKeyPath);
+    const envPrivate = readPemEnv('JWT_PRIVATE_KEY');
+    if (envPrivate) {
+      const privateKeyObject = crypto.createPrivateKey(envPrivate);
+      const envPublic = readPemEnv('JWT_PUBLIC_KEY');
+      this.privateKey = Buffer.from(envPrivate);
+      this.publicKey = envPublic
+        ? Buffer.from(envPublic)
+        : Buffer.from(crypto.createPublicKey(privateKeyObject).export({ type: 'spki', format: 'pem' }) as string);
+      return;
     }
+
+    if (process.env.VERCEL) {
+      console.error('JWT_PRIVATE_KEY is not set: signing keys change at every deployment and all tokens become invalid.');
+    }
+
+    const privateKeyPath = path.join(config.keysDir, 'private.pem');
+    const publicKeyPath = path.join(config.keysDir, 'public.pem');
+
+    if (!fs.existsSync(privateKeyPath) || !fs.existsSync(publicKeyPath)) {
+      throw new Error('RSA keys not found. Set JWT_PRIVATE_KEY or run npm install to generate keys.');
+    }
+
+    this.privateKey = fs.readFileSync(privateKeyPath);
+    this.publicKey = fs.readFileSync(publicKeyPath);
   }
 
   /**
@@ -143,15 +165,16 @@ export class JwtService {
    */
   static getPublicJwk(): object {
     this.loadKeys();
-    
-    // For simplicity, we'll read the JWKS from file
-    const jwksPath = path.join(config.keysDir, 'jwks.json');
-    
-    if (fs.existsSync(jwksPath)) {
-      const jwks = JSON.parse(fs.readFileSync(jwksPath, 'utf-8'));
-      return jwks;
-    }
-    
-    return { keys: [] };
+    // Built from the loaded public key, so the JWKS always matches the signing key
+    const jwk = crypto.createPublicKey(this.publicKey!).export({ format: 'jwk' }) as { n: string; e: string };
+    return { keys: [{ kty: 'RSA', use: 'sig', alg: 'RS256', kid: 'default', n: jwk.n, e: jwk.e }] };
   }
+}
+
+/** Reads a PEM from an env variable, accepting raw PEM (with real or escaped newlines) or base64 */
+function readPemEnv(name: string): string | null {
+  const raw = process.env[name]?.trim();
+  if (!raw) return null;
+  if (raw.includes('-----BEGIN')) return raw.replace(/\\n/g, '\n');
+  return Buffer.from(raw, 'base64').toString('utf8');
 }

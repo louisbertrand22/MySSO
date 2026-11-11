@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { ApiService } from '@/lib/api';
+import { onUnauthorized } from '@/lib/authEvents';
 import { User, LoginCredentials, RegisterCredentials, RegisterResponse } from '@/lib/types';
 
 interface AuthContextType {
@@ -146,6 +147,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw error;
     }
   };
+
+  // The API rejected the access token (expired early, session closed, signing keys rotated):
+  // get a new one with the refresh token, or sign out so the page sends the user to /login.
+  const recovering = useRef<Promise<void> | null>(null);
+  useEffect(() => {
+    return onUnauthorized((rejectedToken) => {
+      if (rejectedToken !== localStorage.getItem('accessToken')) return; // already replaced
+      if (recovering.current) return;
+      recovering.current = refreshAccessToken()
+        .catch(() => {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          setAccessToken(null);
+          setUser(null);
+        })
+        .finally(() => {
+          recovering.current = null;
+        });
+    });
+  }, []);
 
   const register = async (credentials: RegisterCredentials) => {
     return ApiService.register(credentials);

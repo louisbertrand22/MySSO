@@ -25,6 +25,11 @@ function generateKeys() {
     console.log(`📁 Created keys directory: ${KEYS_DIR}`);
   }
 
+  if (process.env.JWT_PRIVATE_KEY) {
+    console.log('✅ JWT_PRIVATE_KEY is set, skipping key generation');
+    return;
+  }
+
   const privateKeyPath = path.join(KEYS_DIR, 'private.pem');
   const publicKeyPath = path.join(KEYS_DIR, 'public.pem');
   const jwksPath = path.join(KEYS_DIR, 'jwks.json');

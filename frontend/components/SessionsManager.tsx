@@ -71,7 +71,10 @@ export default function SessionsManager({ accessToken }: { accessToken: string }
 
   useEffect(() => {
     ApiService.getSessions(accessToken)
-      .then((data) => setSessions(data.sessions))
+      .then((data) => {
+        setError('');
+        setSessions(data.sessions);
+      })
       .catch(() => setError('Les sessions n’ont pas pu être chargées.'));
   }, [accessToken]);
 
