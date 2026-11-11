@@ -1,7 +1,10 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 interface Scope {
   name: string;
@@ -19,116 +22,152 @@ interface ConsentData {
 }
 
 function ConsentContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const clientId = searchParams.get('client_id');
+  const { user, accessToken, isLoading, refreshAccessToken } = useAuth();
   const [consentData, setConsentData] = useState<ConsentData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<'approve' | 'deny' | null>(null);
+
+  // Not logged in: go through the login page and come back here
+  useEffect(() => {
+    if (!isLoading && !user) {
+      const here = `/consent?${searchParams.toString()}`;
+      router.replace(`/login?returnTo=${encodeURIComponent(here)}`);
+    }
+  }, [isLoading, user, router, searchParams]);
 
   useEffect(() => {
-    const fetchConsentData = async () => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-        const params = new URLSearchParams(searchParams.toString());
-        const response = await fetch(`${apiUrl}/consent?${params.toString()}`, {
-          credentials: 'include', // Include cookies for authentication
+    if (!accessToken) return;
+    const controller = new AbortController();
+    fetch(`${API_URL}/consent?${searchParams.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error_description || 'Impossible de charger la demande d’autorisation.');
+        }
+        setConsentData(data);
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') setError(err.message);
+      });
+    return () => controller.abort();
+  }, [accessToken, searchParams]);
+
+  const submitDecision = useCallback(
+    async (approved: boolean) => {
+      if (!accessToken || !consentData) return;
+      setSubmitting(approved ? 'approve' : 'deny');
+      setError(null);
+
+      const body = {
+        client_id: consentData.client.id,
+        redirect_uri: consentData.redirect_uri,
+        approved,
+        scope: consentData.scopes.map((s) => s.name),
+        state: searchParams.get('state') ?? undefined,
+        nonce: searchParams.get('nonce') ?? undefined,
+        code_challenge: searchParams.get('code_challenge') ?? undefined,
+        code_challenge_method: searchParams.get('code_challenge_method') ?? undefined,
+      };
+
+      const send = (token: string) =>
+        fetch(`${API_URL}/auth/authorize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to load consent information');
+      try {
+        let response = await send(accessToken);
+        if (response.status === 401) {
+          // Access token expired while the page was open: refresh once and retry
+          await refreshAccessToken();
+          const fresh = localStorage.getItem('accessToken');
+          if (fresh) response = await send(fresh);
         }
-
-        const data = await response.json();
-        setConsentData(data);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.redirect_to) {
+          throw new Error(data.error_description || 'La décision n’a pas pu être enregistrée.');
+        }
+        window.location.href = data.redirect_to;
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
+        setError(err instanceof Error ? err.message : 'La décision n’a pas pu être enregistrée.');
+        setSubmitting(null);
       }
-    };
+    },
+    [accessToken, consentData, refreshAccessToken, searchParams]
+  );
 
-    fetchConsentData();
-  }, [searchParams]);
-
-  const handleApprove = async () => {
-    // Au lieu de fetch, on redirige l'utilisateur vers le backend 
-    // pour qu'il traite le POST et redirige physiquement le navigateur.
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('approved', 'true');
-    
-    // On redirige vers l'endpoint du back qui va générer le code et rediriger vers 3001
-    window.location.href = `${apiUrl}/authorize?${params.toString()}`;
-  };
-
-  const handleDeny = async () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('approved', 'false');
-    
-    window.location.href = `${apiUrl}/authorize?${params.toString()}`;
-  };
-
-  if (loading) {
+  if (error && !consentData) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600">Chargement...</p>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="max-w-md w-full p-8 rounded-xl border border-zinc-200 dark:border-zinc-800 text-center">
+          <h1 className="text-xl font-semibold mb-2">Autorisation impossible</h1>
+          <p className="text-zinc-600 dark:text-zinc-400">{error}</p>
         </div>
       </div>
     );
   }
 
-  if (error || !consentData) {
+  if (isLoading || !user || !consentData) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full p-8 bg-white shadow rounded-lg text-center">
-          <h1 className="text-2xl font-bold mb-4 text-red-600">Erreur</h1>
-          <p className="mb-6 text-gray-700">{error || 'Unable to load consent information'}</p>
-        </div>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <p className="text-zinc-500">Chargement…</p>
       </div>
     );
   }
+
+  const redirectHost = (() => {
+    try {
+      return new URL(consentData.redirect_uri).host;
+    } catch {
+      return consentData.redirect_uri;
+    }
+  })();
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full p-8 bg-white shadow rounded-lg">
-        <h1 className="text-2xl font-bold mb-4 text-center text-gray-900">Autorisation requise</h1>
-        <p className="mb-6 text-center text-gray-700">
-          L'application <strong>{consentData.client.name}</strong> souhaite accéder à votre compte MySSO.
+    <div className="flex-1 flex items-center justify-center p-6">
+      <div className="max-w-md w-full p-8 rounded-xl border border-zinc-200 dark:border-zinc-800">
+        <h1 className="text-xl font-semibold mb-2">{consentData.client.name} demande l’accès à votre compte</h1>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
+          Connecté en tant que <strong>{user.email}</strong>
         </p>
-        
-        {consentData.scopes && consentData.scopes.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3 text-gray-800">Permissions demandées :</h2>
-            <ul className="space-y-2">
-              {consentData.scopes.map((scope) => (
-                <li key={scope.name} className="flex items-start">
-                  <svg className="w-5 h-5 text-indigo-600 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <div>
-                    <p className="font-medium text-gray-900">{scope.name}</p>
-                    <p className="text-sm text-gray-600">{scope.description}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+
+        {consentData.scopes.length > 0 && (
+          <ul className="space-y-3 mb-6">
+            {consentData.scopes.map((scope) => (
+              <li key={scope.name}>
+                <p className="font-medium">{scope.description || scope.name}</p>
+                <p className="text-xs text-zinc-500 font-mono">{scope.name}</p>
+              </li>
+            ))}
+          </ul>
         )}
-        
-        <div className="flex gap-4 justify-center">
-          <button 
-            onClick={handleApprove}
-            className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 transition-colors"
+
+        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
+          Vous serez redirigé vers <strong>{redirectHost}</strong>.
+        </p>
+
+        {error && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{error}</p>}
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => submitDecision(true)}
+            disabled={submitting !== null}
+            className="flex-1 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-2 rounded-lg disabled:opacity-50"
           >
-            Accepter
+            {submitting === 'approve' ? 'Autorisation…' : 'Autoriser'}
           </button>
-          <button 
-            onClick={handleDeny}
-            className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500 transition-colors"
+          <button
+            onClick={() => submitDecision(false)}
+            disabled={submitting !== null}
+            className="flex-1 border border-zinc-300 dark:border-zinc-700 px-4 py-2 rounded-lg disabled:opacity-50"
           >
-            Refuser
+            {submitting === 'deny' ? 'Refus…' : 'Refuser'}
           </button>
         </div>
       </div>
@@ -138,7 +177,7 @@ function ConsentContent() {
 
 export default function ConsentPage() {
   return (
-    <Suspense fallback={<div>Chargement du consentement...</div>}>
+    <Suspense>
       <ConsentContent />
     </Suspense>
   );

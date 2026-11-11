@@ -14,8 +14,6 @@ function RegisterContent() {
   const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
 
   const returnTo = searchParams.get('returnTo');
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-  const isBackendUrl = returnTo && returnTo.startsWith(apiUrl);
 
   const loginHref = returnTo
     ? `/login?returnTo=${encodeURIComponent(returnTo)}`

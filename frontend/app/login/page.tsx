@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiService } from '@/lib/api';
 import AuthForm from '@/components/AuthForm';
+import { resolveReturnTo } from '@/lib/redirect';
 
 function LoginContent() {
   const router = useRouter();
@@ -17,10 +18,7 @@ function LoginContent() {
   const [resendDone, setResendDone] = useState(false);
 
   const returnTo = searchParams.get('returnTo');
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
-  const isBackendUrl = returnTo && returnTo.startsWith(apiUrl);
-  const safeRedirect = (returnTo && returnTo.startsWith('/')) || isBackendUrl ? returnTo : '/dashboard';
+  const redirect = resolveReturnTo(returnTo);
 
   const handleSubmit = async (email: string, password: string) => {
     setError(null);
@@ -28,10 +26,10 @@ function LoginContent() {
     setResendDone(false);
     try {
       await login({ email, password });
-      if (isBackendUrl) {
-        window.location.href = safeRedirect!;
+      if (redirect.external) {
+        window.location.href = redirect.href;
       } else {
-        router.push(safeRedirect!);
+        router.push(redirect.href);
       }
   } catch (err: unknown) {
       // Backend sometimes returns a thrown object with { error: 'email_not_verified', email }

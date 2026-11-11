@@ -1,5 +1,10 @@
 import { Router } from 'express';
 import { ClientController } from '../controllers/clientController';
+import { authMiddleware, requireScope } from '../middleware';
+
+// Creating, modifying and deleting clients is reserved to admins: client_id values are public
+// (they appear in every /authorize URL), so these routes must never be open.
+const adminOnly = [authMiddleware, requireScope('admin')];
 
 const router = Router();
 
@@ -8,7 +13,9 @@ const router = Router();
  * /clients/register:
  *   post:
  *     tags: [Clients]
- *     summary: Register a new OAuth2 client
+ *     summary: Register a new OAuth2 client (admin only)
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -40,7 +47,7 @@ const router = Router();
  *                     clientSecret:
  *                       type: string
  */
-router.post('/clients/register', ClientController.register);
+router.post('/clients/register', ...adminOnly, ClientController.register);
 
 /**
  * @swagger
@@ -65,7 +72,9 @@ router.post('/clients/register', ClientController.register);
  *         description: Client not found
  *   delete:
  *     tags: [Clients]
- *     summary: Delete a client
+ *     summary: Delete a client (admin only)
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: clientId
@@ -79,14 +88,16 @@ router.post('/clients/register', ClientController.register);
  *         description: Client not found
  */
 router.get('/clients/:clientId', ClientController.getClient);
-router.delete('/clients/:clientId', ClientController.delete);
+router.delete('/clients/:clientId', ...adminOnly, ClientController.delete);
 
 /**
  * @swagger
  * /clients/{clientId}/redirect-uris:
  *   put:
  *     tags: [Clients]
- *     summary: Update client redirect URIs
+ *     summary: Update client redirect URIs (admin only)
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: clientId
@@ -113,6 +124,6 @@ router.delete('/clients/:clientId', ClientController.delete);
  *             schema:
  *               $ref: '#/components/schemas/Client'
  */
-router.put('/clients/:clientId/redirect-uris', ClientController.updateRedirectUris);
+router.put('/clients/:clientId/redirect-uris', ...adminOnly, ClientController.updateRedirectUris);
 
 export default router;

@@ -415,7 +415,6 @@ export class AuthController {
       userinfo_endpoint: `${baseUrl}/userinfo`,
       jwks_uri: `${baseUrl}/jwks.json`,
       end_session_endpoint: `${baseUrl}/auth/logout`,
-      registration_endpoint: `${baseUrl}/clients/register`,
 
       response_types_supported: ['code'],
       response_modes_supported: ['query'],
@@ -465,7 +464,7 @@ export class AuthController {
         nonce, 
         code_challenge, 
         code_challenge_method,
-        approved
+        scope
       } = req.query;
       
       // 1. Validations de base
@@ -532,40 +531,25 @@ export class AuthController {
         return;
       }
 
-      // Check if user is returning from consent page with a decision
-      if (approved !== undefined) {
-        const redirectUrl = new URL(redirect_uri);
-        
-        // Handle denial
-        if (approved === 'false') {
-          redirectUrl.searchParams.set('error', 'access_denied');
-          redirectUrl.searchParams.set('error_description', 'User denied authorization');
-          if (state && typeof state === 'string') {
-            redirectUrl.searchParams.set('state', state);
-          }
-          res.redirect(redirectUrl.toString());
-          return;
-        }
-        
-        // Handle approval
-        if (approved === 'true') {
-          // Grant consent with default scopes
-          const scopes = ScopeService.getDefaultScopes();
-          await ConsentService.grantConsent(userId, clientId, scopes);
-          
-          // Generate authorization code
-          const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId, nonceParam, codeChallenge, codeChallengeMethod);
-          redirectUrl.searchParams.set('code', code);
-          if (state && typeof state === 'string') {
-            redirectUrl.searchParams.set('state', state);
-          }
-          res.redirect(redirectUrl.toString());
-          return;
-        }
-      }
+      // The consent decision is only accepted through POST /auth/authorize (called by the
+      // consent page with a Bearer token). A GET decision would let any site skip the consent
+      // screen by sending a logged-in user to /authorize?approved=true.
 
-      const hasConsent = await ConsentService.hasConsent(userId, clientId);
-      if (hasConsent) {
+      // Scopes requested by the client, limited to the ones it is allowed to request
+      const client = await ClientService.getClient(clientId);
+      const requestedScopes = typeof scope === 'string' && scope.trim()
+        ? scope.trim().split(/\s+/)
+        : ScopeService.getDefaultScopes();
+      const allowedScopes = ScopeService.validateClientScopes(
+        requestedScopes,
+        client?.allowedScopes || ScopeService.getDefaultScopes()
+      );
+
+      // Reuse an existing consent only if it covers every requested scope
+      const consentedScopes = await ConsentService.getConsentScopes(userId, clientId);
+      const consentCovers = consentedScopes !== null
+        && allowedScopes.every((s) => consentedScopes.includes(s));
+      if (consentCovers) {
         const code = await AuthCodeService.generateAuthCode(userId, redirect_uri, clientId, nonceParam, codeChallenge, codeChallengeMethod);
         const redirectUrl = new URL(redirect_uri);
         redirectUrl.searchParams.set('code', code);
@@ -574,12 +558,17 @@ export class AuthController {
         return;
       }
 
-      // Redirection vers l'écran de consentement
+      // Redirection vers l'écran de consentement, en conservant scope / PKCE / nonce / state
       const consentUrl = new URL(`${config.frontendUrl}/consent`);
       consentUrl.searchParams.set('client_id', clientId);
       consentUrl.searchParams.set('redirect_uri', redirect_uri);
-      if (state) consentUrl.searchParams.set('state', state as string);
+      consentUrl.searchParams.set('scope', allowedScopes.join(' '));
+      if (state && typeof state === 'string') consentUrl.searchParams.set('state', state);
       if (nonceParam) consentUrl.searchParams.set('nonce', nonceParam);
+      if (codeChallenge) {
+        consentUrl.searchParams.set('code_challenge', codeChallenge);
+        consentUrl.searchParams.set('code_challenge_method', codeChallengeMethod);
+      }
       res.redirect(consentUrl.toString());
 
     } catch (error) {
@@ -737,6 +726,16 @@ export class AuthController {
 
       const redirectUrl = new URL(redirect_uri);
 
+      // The consent page calls this endpoint with fetch(): a cross-origin redirect cannot be
+      // followed there, so JSON callers get the target URL and navigate themselves.
+      const sendRedirect = (url: string) => {
+        if (req.is('application/json')) {
+          res.json({ redirect_to: url });
+        } else {
+          res.redirect(url);
+        }
+      };
+
       // Handle denial
       if (!approved) {
         redirectUrl.searchParams.set('error', 'access_denied');
@@ -744,7 +743,7 @@ export class AuthController {
         if (state && typeof state === 'string') {
           redirectUrl.searchParams.set('state', state);
         }
-        res.redirect(redirectUrl.toString());
+        sendRedirect(redirectUrl.toString());
         return;
       }
 
@@ -793,7 +792,7 @@ export class AuthController {
         redirectUrl.searchParams.set('state', state);
       }
 
-      res.redirect(redirectUrl.toString());
+      sendRedirect(redirectUrl.toString());
     } catch (error) {
       console.error('Handle consent error:', error);
       res.status(500).json({
