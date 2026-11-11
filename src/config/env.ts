@@ -32,6 +32,11 @@ export const config = {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3002',
 
   // SMTP / email configuration
+  rateLimit: {
+    // Max refresh_token grants per client (and caller IP) per 15 minutes
+    tokenRefreshPerClient: parseInt(process.env.TOKEN_REFRESH_RATE_LIMIT || '1000', 10),
+  },
+
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT || '587', 10),

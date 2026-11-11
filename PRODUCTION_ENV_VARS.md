@@ -91,6 +91,17 @@ KEYS_DIR=./keys
 - Default: `./keys` in project root
 - Usually not needed
 
+### TOKEN_REFRESH_RATE_LIMIT
+```
+TOKEN_REFRESH_RATE_LIMIT=1000
+```
+**Purpose**: Max `grant_type=refresh_token` requests on `POST /token` per OAuth client (and caller IP), per 15 minutes
+- Default: `1000`
+- Access tokens last 15 minutes, so each active user triggers about one refresh per 15 minutes.
+  Set it above the number of users a client has active at the same time.
+- Refresh grants are exempt from the per-IP limits (global 120/min, `/token` 30/15 min),
+  because a client backend refreshes for all its users from a single IP.
+
 ## Example: Complete Production Configuration
 
 ```bash

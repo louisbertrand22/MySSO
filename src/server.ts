@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { config, validateConfig } from './config/env';
 import { swaggerSpec } from './config/swagger';
@@ -11,6 +11,7 @@ import authRoutes from './routes/authRoutes';
 import clientRoutes from './routes/clientRoutes';
 import userRoutes from './routes/userRoutes';
 import adminRoutes from './routes/adminRoutes';
+import { getClientCredentials, isRefreshTokenGrant } from './utils/clientCredentials';
 
 // Validate configuration
 validateConfig();
@@ -81,7 +82,9 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'too_many_requests', error_description: 'Too many requests, please slow down' },
-  skip: (req) => req.path === '/health', // don't limit health checks
+  // Health checks are not limited. Refresh grants are limited per client by refreshTokenLimiter:
+  // a client backend refreshes for all its users from one IP and would hit this per-IP cap.
+  skip: (req) => req.path === '/health' || isRefreshTokenGrant(req),
 });
 
 app.use(globalLimiter);
@@ -112,12 +115,30 @@ const forgotPasswordLimiter = rateLimit({
   message: { error: 'too_many_requests', error_description: 'Trop de demandes de réinitialisation, réessayez dans une heure' },
 });
 
+// POST /token, except refresh grants: 30 requests / 15 min per IP
 const tokenLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'too_many_requests', error_description: 'Too many token requests, please try again later' },
+  skip: isRefreshTokenGrant,
+});
+
+// POST /token with grant_type=refresh_token: limited per client_id.
+// The key also includes the caller IP: client_id is not authenticated at this point, so keying on
+// client_id alone would let anyone exhaust a client's budget by sending requests with its client_id.
+const refreshTokenLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: config.rateLimit.tokenRefreshPerClient,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Too many refresh requests for this client, please try again later' },
+  skip: (req) => !isRefreshTokenGrant(req),
+  keyGenerator: (req) => {
+    const { clientId } = getClientCredentials(req);
+    return `refresh:${clientId ?? '-'}:${ipKeyGenerator(req.ip ?? '')}`;
+  },
 });
 
 const resendVerificationLimiter = rateLimit({
@@ -176,7 +197,7 @@ app.use('/auth/login', authLimiter);
 app.use('/auth/register', registerLimiter);
 app.use('/auth/forgot-password', forgotPasswordLimiter);
 app.use('/auth/resend-verification', resendVerificationLimiter);
-app.use('/token', tokenLimiter);
+app.use('/token', tokenLimiter, refreshTokenLimiter);
 
 // Mount auth routes
 app.use('/', authRoutes);

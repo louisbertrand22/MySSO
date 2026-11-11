@@ -342,7 +342,7 @@ router.post('/auth/authorize', authMiddleware, AuthController.handleConsent);
  *         application/x-www-form-urlencoded:
  *           schema:
  *             type: object
- *             required: [grant_type, client_id, redirect_uri]
+ *             required: [grant_type]
  *             properties:
  *               grant_type:
  *                 type: string

@@ -12,6 +12,7 @@ import { ScopeService } from '../services/scopeService';
 import { EmailService } from '../services/emailService';
 import { prisma } from '../services/authService';
 import { HashService } from '../services/hashService';
+import { getClientCredentials } from '../utils/clientCredentials';
 
 async function isEmailVerificationRequired(): Promise<boolean> {
   const row = await prisma.systemSetting.findUnique({ where: { key: 'requireEmailVerification' } });
@@ -204,7 +205,8 @@ export class AuthController {
         include: { user: true }
       });
 
-      if (!stored) {
+      // Tokens issued to OAuth clients must be refreshed through POST /token
+      if (!stored || stored.clientId) {
         res.status(403).json({ error: "Invalid refresh token" });
         return;
       }
@@ -802,13 +804,152 @@ export class AuthController {
   }
 
   /**
+   * grant_type=refresh_token handler for POST /token.
+   * Rotates the refresh token (old one is invalidated, a new one is issued) and slides
+   * the session expiry, so an active user stays logged in indefinitely.
+   */
+  private static async tokenRefreshGrant(
+    req: Request,
+    res: Response,
+    clientId: string | undefined,
+    clientSecret: string | undefined
+  ): Promise<void> {
+    const refreshToken: string | undefined = req.body.refresh_token;
+    const invalidGrant = (description: string) =>
+      res.status(400).json({ error: 'invalid_grant', error_description: description });
+
+    if (!refreshToken) {
+      res.status(400).json({ error: 'invalid_request', error_description: 'Missing refresh_token parameter' });
+      return;
+    }
+    if (!clientId) {
+      res.status(401).json({ error: 'invalid_client', error_description: 'Client authentication required' });
+      return;
+    }
+
+    // Authenticate the client when a secret is provided (confidential clients)
+    if (clientSecret) {
+      const client = await ClientService.validateClient(clientId, clientSecret);
+      if (!client) {
+        res.status(401).json({ error: 'invalid_client', error_description: 'Invalid client credentials' });
+        return;
+      }
+    }
+
+    let decoded: any;
+    try {
+      decoded = JwtService.verify(refreshToken);
+    } catch {
+      invalidGrant('Invalid or expired refresh token');
+      return;
+    }
+    if (decoded.type !== 'refresh') {
+      invalidGrant('Invalid token type');
+      return;
+    }
+
+    const prisma = AuthService.getPrisma();
+    const stored = await prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      include: {
+        user: { select: { id: true, email: true, username: true, isDisabled: true } },
+        session: true,
+        client: { select: { refreshTokenTtlDays: true } },
+      },
+    });
+
+    if (!stored) {
+      invalidGrant('Invalid refresh token');
+      return;
+    }
+
+    // The token must have been issued to this client
+    if (!stored.clientId || stored.clientId !== clientId) {
+      invalidGrant('Refresh token was not issued to this client');
+      return;
+    }
+
+    const now = new Date();
+    if (stored.expiresAt < now) {
+      await prisma.refreshToken.delete({ where: { token: refreshToken } });
+      invalidGrant('Refresh token expired');
+      return;
+    }
+
+    // The session the token belongs to must still be active
+    if (stored.session && (stored.session.revokedAt || stored.session.expiresAt < now)) {
+      await prisma.refreshToken.delete({ where: { token: refreshToken } });
+      invalidGrant('Session expired or revoked');
+      return;
+    }
+
+    if (stored.user.isDisabled) {
+      await prisma.refreshToken.delete({ where: { token: refreshToken } });
+      invalidGrant('Account disabled');
+      return;
+    }
+
+    // The user must still consent to this client; reuse the consented scopes
+    const scopes = await ConsentService.getConsentScopes(stored.userId, clientId);
+    if (!scopes) {
+      await prisma.refreshToken.delete({ where: { token: refreshToken } });
+      invalidGrant('Consent revoked');
+      return;
+    }
+
+    // Rotation: atomically consume the old token. If another request already used it,
+    // deleteMany returns 0 and we refuse (prevents parallel reuse of the same token).
+    const consumed = await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+    if (consumed.count === 0) {
+      invalidGrant('Refresh token already used');
+      return;
+    }
+
+    const { accessToken, refreshToken: newRefreshToken } = await AuthService.generateTokens(
+      stored.userId,
+      stored.user.email,
+      scopes.length > 0 ? scopes : undefined,
+      {
+        clientId,
+        refreshTtlDays: stored.client?.refreshTokenTtlDays,
+        existingSessionId: stored.sessionId ?? undefined,
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+      }
+    );
+
+    SecurityLogger.logTokenGrant(stored.userId, clientId, scopes);
+
+    const response: any = {
+      access_token: accessToken,
+      token_type: 'Bearer',
+      expires_in: 900, // 15 minutes
+      refresh_token: newRefreshToken,
+      scope: scopes.join(' '),
+    };
+
+    if (scopes.includes('openid')) {
+      response.id_token = JwtService.generateIdToken(
+        stored.userId,
+        stored.user.email,
+        undefined,
+        clientId,
+        stored.user.username || undefined
+      );
+    }
+
+    res.json(response);
+  }
+
+  /**
    * POST /token
    * OAuth2 token endpoint
    * Exchanges authorization code for access, refresh, and ID tokens
    */
   static async token(req: Request, res: Response): Promise<void> {
     try {
-      const { grant_type, code, redirect_uri, code_verifier, client_id, client_secret } = req.body;
+      const { grant_type, code, redirect_uri, code_verifier } = req.body;
+      const { clientId: client_id, clientSecret: client_secret } = getClientCredentials(req);
 
       // Validate grant_type
       if (!grant_type) {
@@ -893,11 +1034,25 @@ export class AuthController {
           }
         }
 
-        // Generate access and refresh tokens with scopes
+        // Per-client refresh token lifetime
+        const clientConfig = clientId
+          ? await prisma.client.findUnique({
+              where: { clientId },
+              select: { refreshTokenTtlDays: true },
+            })
+          : null;
+
+        // Generate access and refresh tokens with scopes (refresh token bound to the client)
         const { accessToken, refreshToken } = await AuthService.generateTokens(
           user.id,
           user.email,
-          scopes.length > 0 ? scopes : undefined
+          scopes.length > 0 ? scopes : undefined,
+          {
+            clientId: clientId ?? undefined,
+            refreshTtlDays: clientConfig?.refreshTokenTtlDays,
+            ip: req.ip,
+            userAgent: req.get('user-agent'),
+          }
         );
 
         // Generate ID token if 'openid' scope is present
@@ -911,14 +1066,6 @@ export class AuthController {
             user.username || undefined
           );
         }
-
-        // Set refresh token as HttpOnly cookie
-        res.cookie('refreshToken', refreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 90 * 24 * 60 * 60 * 1000 // 90 days
-        });
 
         SecurityLogger.logTokenGrant(user.id, clientId ?? null, scopes);
 
@@ -937,6 +1084,12 @@ export class AuthController {
         }
 
         res.json(response);
+        return;
+      }
+
+      // Refresh token flow (RFC 6749 §6)
+      if (grant_type === 'refresh_token') {
+        await AuthController.tokenRefreshGrant(req, res, client_id, client_secret);
         return;
       }
 

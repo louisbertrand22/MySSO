@@ -81,14 +81,13 @@ export class UserController {
         return;
       }
 
-      // Delete all refresh tokens associated with this user and client
+      // Delete the refresh tokens issued to this client for this user
       // This ensures users cannot continue using the app after revoking consent
       const prisma = ConsentService.getPrisma();
       const deletedTokens = await prisma.refreshToken.deleteMany({
         where: {
           userId,
-          // Note: RefreshToken doesn't have clientId, so we delete all user tokens
-          // This is a limitation - ideally we'd track clientId in RefreshToken
+          clientId: clientId as string,
         },
       });
 

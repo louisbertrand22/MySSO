@@ -889,22 +889,40 @@ def validate_id_token(id_token, client_id, nonce):
 
 ### Refreshing Access Tokens
 
-Access tokens expire after 15 minutes. Use the refresh token to get a new one:
+Access tokens expire after 15 minutes. Use the refresh token with the standard
+`refresh_token` grant on `POST /token` (RFC 6749 §6) to get a new one.
+
+- **Lifetime:** refresh tokens last 90 days by default. An admin can change this per client
+  (`refreshTokenTtlDays`, 1–365, via `PATCH /admin/clients/{clientId}`).
+- **Rotation:** every refresh returns a **new** `refresh_token` and invalidates the old one.
+  Always store the new one. The expiry slides, so a user who comes back regularly stays logged in.
+- **Binding:** a refresh token only works for the client it was issued to, and stops working
+  if the user revokes consent, revokes the session, or the account is disabled (`invalid_grant`).
+- **Client authentication:** `client_secret_basic` (Authorization header) or `client_secret_post`.
+- `POST /auth/refresh` is reserved for the MySSO frontend and rejects tokens issued to clients.
 
 ```javascript
+// Run this server-side: it uses the client secret
 async function refreshAccessToken(refreshToken) {
-  const response = await fetch('https://sso.example.com/auth/refresh', {
+  const response = await fetch('https://sso.example.com/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken })
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': 'Basic ' + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64'),
+    },
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
   });
-  
+
   const data = await response.json();
-  
-  // Store new access token
-  sessionStorage.setItem('access_token', data.accessToken);
-  
-  return data.accessToken;
+  if (!response.ok) {
+    // invalid_grant → token expired/revoked: send the user back through /authorize
+    throw new Error(data.error);
+  }
+
+  // Store BOTH tokens: the old refresh token is no longer valid
+  saveTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
+
+  return data.access_token;
 }
 ```
 

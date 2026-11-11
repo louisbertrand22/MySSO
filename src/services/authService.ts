@@ -5,6 +5,9 @@ import { randomBytes } from "crypto"
 
 const prisma = new PrismaClient()
 
+/** Default refresh token / session lifetime, in days */
+export const DEFAULT_REFRESH_TTL_DAYS = 90
+
 /**
  * Authentication Service
  * Provides core authentication functionality using existing services
@@ -55,7 +58,15 @@ export class AuthService {
     userId: string,
     email?: string,
     scopes?: string[],
-    options?: { ip?: string; userAgent?: string; existingSessionId?: string }
+    options?: {
+      ip?: string;
+      userAgent?: string;
+      existingSessionId?: string;
+      /** OAuth client the refresh token is bound to (null/undefined = first-party SSO session) */
+      clientId?: string;
+      /** Refresh token / session lifetime in days (defaults to 90) */
+      refreshTtlDays?: number;
+    }
   ): Promise<{ accessToken: string; refreshToken: string }> {
     // Fetch user to get createdAt timestamp
     const user = await prisma.user.findUnique({
@@ -95,12 +106,13 @@ export class AuthService {
     const jti = randomBytes(16).toString("hex")
 
     // Generate refresh token with unique jti to prevent token reuse
+    const ttlDays = options?.refreshTtlDays ?? DEFAULT_REFRESH_TTL_DAYS
     const refreshToken = JwtService.sign(
       { sub: userId, type: "refresh", jti },
-      { expiresIn: "90d" }
+      { expiresIn: `${ttlDays}d` }
     )
 
-    const sessionExpiry = new Date(Date.now() + 90 * 24 * 3600 * 1000);
+    const sessionExpiry = new Date(Date.now() + ttlDays * 24 * 3600 * 1000);
 
     let sessionId: string;
     if (options?.existingSessionId) {
@@ -128,6 +140,7 @@ export class AuthService {
         userId,
         token: refreshToken,
         sessionId,
+        clientId: options?.clientId ?? null,
         expiresAt: sessionExpiry,
       },
     })

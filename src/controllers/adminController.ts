@@ -174,6 +174,7 @@ export class AdminController {
           clientId: true,
           redirectUris: true,
           allowedScopes: true,
+          refreshTokenTtlDays: true,
           createdAt: true,
           updatedAt: true,
           _count: { select: { consents: true, authCodes: true } },
@@ -214,8 +215,13 @@ export class AdminController {
   static async updateClient(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const clientId = param(req.params['clientId']);
-      const updates = req.body as { name?: string; redirectUris?: string[]; allowedScopes?: string[] };
-      const client = await ClientService.updateClient(clientId, updates);
+      const updates = req.body as { name?: string; redirectUris?: string[]; allowedScopes?: string[]; refreshTokenTtlDays?: number };
+      let client;
+      try {
+        client = await ClientService.updateClient(clientId, updates);
+      } catch (validationError) {
+        res.status(400).json({ error: 'invalid_request', message: (validationError as Error).message }); return;
+      }
       if (!client) { res.status(404).json({ error: 'not_found', message: 'Client not found' }); return; }
       SecurityLogger.logAdminAction(req.user!.sub, 'UPDATE_CLIENT', clientId);
       res.json({ client });

@@ -293,8 +293,14 @@ export class ClientService {
    */
   static async updateClient(
     clientId: string,
-    updates: { name?: string; redirectUris?: string[]; allowedScopes?: string[] }
-  ): Promise<{ id: string; name: string; clientId: string; redirectUris: string[]; allowedScopes: string[] } | null> {
+    updates: { name?: string; redirectUris?: string[]; allowedScopes?: string[]; refreshTokenTtlDays?: number }
+  ): Promise<{ id: string; name: string; clientId: string; redirectUris: string[]; allowedScopes: string[]; refreshTokenTtlDays: number } | null> {
+    if (updates.refreshTokenTtlDays !== undefined) {
+      const ttl = updates.refreshTokenTtlDays;
+      if (!Number.isInteger(ttl) || ttl < 1 || ttl > 365) {
+        throw new Error('refreshTokenTtlDays must be an integer between 1 and 365');
+      }
+    }
     if (updates.redirectUris) {
       for (const uri of updates.redirectUris) {
         try { new URL(uri); } catch { throw new Error(`Invalid redirect URI: ${uri}`); }
@@ -307,8 +313,9 @@ export class ClientService {
           ...(updates.name && { name: updates.name.trim() }),
           ...(updates.redirectUris && { redirectUris: updates.redirectUris }),
           ...(updates.allowedScopes && { allowedScopes: updates.allowedScopes }),
+          ...(updates.refreshTokenTtlDays !== undefined && { refreshTokenTtlDays: updates.refreshTokenTtlDays }),
         },
-        select: { id: true, name: true, clientId: true, redirectUris: true, allowedScopes: true },
+        select: { id: true, name: true, clientId: true, redirectUris: true, allowedScopes: true, refreshTokenTtlDays: true },
       });
     } catch {
       return null;

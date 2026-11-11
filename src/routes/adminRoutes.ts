@@ -188,7 +188,7 @@ router.post('/admin/clients', authMiddleware, requireScope('admin'), AdminContro
  * /admin/clients/{clientId}:
  *   patch:
  *     tags: [Admin]
- *     summary: Update client name, redirectUris, or allowedScopes
+ *     summary: Update client name, redirectUris, allowedScopes, or refreshTokenTtlDays
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -213,6 +213,11 @@ router.post('/admin/clients', authMiddleware, requireScope('admin'), AdminContro
  *                 type: array
  *                 items:
  *                   type: string
+ *               refreshTokenTtlDays:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 365
+ *                 description: Refresh token lifetime in days (sliding, renewed on each refresh)
  *     responses:
  *       200:
  *         description: Updated client
