@@ -13,3 +13,4 @@ done
 rsvg-convert -w 180 -h 180 "$here/icon-maskable.svg" -o "$app/apple-icon.png"   # iOS home screen (iOS rounds the corners)
 cp "$here/icon.svg" "$app/icon.svg"                                               # favicon
 echo "Icons written to $pub and $app"
+node "$here/generate-splash.mjs"   # iOS launch screens (they embed icon.svg)

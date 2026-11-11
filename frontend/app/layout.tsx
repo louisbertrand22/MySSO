@@ -6,6 +6,7 @@ import { ThemeProvider, themeInitScript } from "@/contexts/ThemeContext";
 import { OverlayProvider } from "@/components/ui/Overlays";
 import Footer from "@/components/Footer";
 import PwaSetup from "@/components/PwaSetup";
+import { startupImages } from "@/lib/splash";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   applicationName: "MySSO",
   robots: { index: false, follow: false },
   // Installed on iOS: own window, name under the icon (the icon itself is app/apple-icon.png)
-  appleWebApp: { capable: true, title: "MySSO", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "MySSO", statusBarStyle: "default", startupImage: startupImages },
   formatDetection: { telephone: false },
 };
 
