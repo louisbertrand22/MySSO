@@ -8,16 +8,16 @@ import AppHeader, { Avatar, THEME_OPTIONS } from '@/components/AppHeader';
 import ConsentsManager from '@/components/ConsentsManager';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
 import InstallApp from '@/components/InstallApp';
+import SessionsManager from '@/components/SessionsManager';
 import { Section, Row } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Segmented } from '@/components/ui/Field';
-import { Alert, EmptyState, PageLoader, Skeleton } from '@/components/ui/Feedback';
-import { CopyIcon, DeviceIcon, PhoneIcon } from '@/components/ui/Icons';
+import { PageLoader } from '@/components/ui/Feedback';
+import { CopyIcon } from '@/components/ui/Icons';
 import { useOverlay } from '@/components/ui/Overlays';
 import { ApiService } from '@/lib/api';
 import { validateUsername } from '@/lib/validation';
-import { formatDate, parseDevice, timeAgo } from '@/lib/format';
-import type { SessionInfo } from '@/lib/types';
+import { formatDate } from '@/lib/format';
 
 const SECTIONS = [
   { id: 'profil', label: 'Profil' },
@@ -87,80 +87,6 @@ function UsernameRow() {
         {user.username ? 'Modifier' : 'Définir'}
       </Button>
     </div>
-  );
-}
-
-function SessionsList({ accessToken }: { accessToken: string }) {
-  const { confirm, toast } = useOverlay();
-  const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
-  const [error, setError] = useState('');
-  const [revoking, setRevoking] = useState<string | null>(null);
-
-  useEffect(() => {
-    ApiService.getSessions(accessToken)
-      .then((data) => setSessions(data.sessions))
-      .catch(() => setError('Les sessions n’ont pas pu être chargées.'));
-  }, [accessToken]);
-
-  const revoke = async (session: SessionInfo) => {
-    const { browser, os } = parseDevice(session.userAgent);
-    const ok = await confirm({
-      title: 'Fermer cette session ?',
-      description: `${browser} sur ${os} sera déconnecté. Si c’est l’appareil que vous utilisez, vous devrez vous reconnecter.`,
-      confirmLabel: 'Fermer la session',
-      tone: 'danger',
-    });
-    if (!ok) return;
-    setRevoking(session.id);
-    try {
-      await ApiService.revokeSession(accessToken, session.id);
-      setSessions((prev) => prev?.filter((s) => s.id !== session.id) ?? null);
-      toast('Session fermée.');
-    } catch {
-      toast('La session n’a pas pu être fermée.', 'danger');
-    } finally {
-      setRevoking(null);
-    }
-  };
-
-  if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!sessions) {
-    return (
-      <div className="space-y-3 py-1">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-      </div>
-    );
-  }
-  if (sessions.length === 0) {
-    return <EmptyState icon={<DeviceIcon size={18} />} title="Aucune session ouverte" />;
-  }
-
-  return (
-    <ul className="-my-1 divide-y divide-line">
-      {sessions.map((session) => {
-        const { browser, os, mobile } = parseDevice(session.userAgent);
-        const Icon = mobile ? PhoneIcon : DeviceIcon;
-        return (
-          <li key={session.id} className="flex items-center justify-between gap-4 py-3.5">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-surface-2 text-muted">
-                <Icon size={18} />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{browser} · {os}</p>
-                <p className="truncate text-[13px] text-muted">
-                  Actif {timeAgo(session.lastSeenAt)} · <span className="font-mono text-xs">{session.ip ?? 'IP inconnue'}</span>
-                </p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" loading={revoking === session.id} onClick={() => revoke(session)}>
-              Fermer
-            </Button>
-          </li>
-        );
-      })}
-    </ul>
   );
 }
 
@@ -252,8 +178,8 @@ export default function DashboardPage() {
               <Row label="Mot de passe">{accessToken && <ChangePasswordForm accessToken={accessToken} />}</Row>
             </dl>
             <h3 className="mb-1 mt-5 text-sm font-medium">Sessions ouvertes</h3>
-            <p className="mb-2 text-[13px] text-muted">Fermez les sessions que vous ne reconnaissez pas.</p>
-            {accessToken && <SessionsList accessToken={accessToken} />}
+            <p className="mb-3 text-[13px] text-muted">Fermez les sessions que vous ne reconnaissez pas.</p>
+            {accessToken && <SessionsManager accessToken={accessToken} />}
           </Section>
 
           <Section id="applications" title="Applications autorisées" description="Les applications qui peuvent utiliser votre compte MySSO.">

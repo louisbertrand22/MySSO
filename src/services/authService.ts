@@ -96,12 +96,6 @@ export class AuthService {
       accessTokenPayload.scopes = scopes;
     }
 
-    // Generate access token with user email, createdAt, and scopes
-    const accessToken = JwtService.sign(
-      accessTokenPayload, 
-      { expiresIn: "15m" }
-    )
-
     // Generate unique identifier for this refresh token (jti claim)
     const jti = randomBytes(16).toString("hex")
 
@@ -133,6 +127,11 @@ export class AuthService {
       });
       sessionId = session.id;
     }
+
+    // Access token carries the session id (OIDC "sid") so the account page can tell
+    // which session is the current one
+    accessTokenPayload.sid = sessionId;
+    const accessToken = JwtService.sign(accessTokenPayload, { expiresIn: "15m" })
 
     // Store refresh token linked to the session
     await prisma.refreshToken.create({

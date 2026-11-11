@@ -181,6 +181,24 @@ router.get('/user/sessions', authMiddleware, UserController.getSessions);
 
 /**
  * @swagger
+ * /user/sessions:
+ *   delete:
+ *     tags: [User]
+ *     summary: Revoke every session except the current one
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Number of sessions revoked
+ *       400:
+ *         description: The access token does not identify a session (sign in again)
+ *       401:
+ *         description: Unauthorized
+ */
+router.delete('/user/sessions', authMiddleware, UserController.revokeOtherSessions);
+
+/**
+ * @swagger
  * /user/sessions/{sessionId}:
  *   delete:
  *     tags: [User]

@@ -240,6 +240,24 @@ export class ApiService {
   }
 
   /**
+   * Revoke every session except the current one. Returns how many were closed.
+   */
+  static async revokeOtherSessions(accessToken: string): Promise<number> {
+    const response = await fetch(`${API_URL}/user/sessions`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to revoke sessions');
+    }
+
+    const data = await response.json();
+    return typeof data.revoked === 'number' ? data.revoked : 0;
+  }
+
+  /**
    * Update user profile (username)
    */
   static async updateProfile(accessToken: string, username: string): Promise<{ user: User }> {

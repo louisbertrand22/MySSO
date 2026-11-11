@@ -26,6 +26,10 @@ export interface SessionInfo {
   createdAt: string;
   lastSeenAt: string;
   expiresAt: string;
+  /** Application the session was opened for; null = MySSO itself */
+  client?: { clientId: string; name: string } | null;
+  /** True for the session this page is running in */
+  current?: boolean;
 }
 
 export interface SessionsResponse {

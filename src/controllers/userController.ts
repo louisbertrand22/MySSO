@@ -249,13 +249,64 @@ export class UserController {
           createdAt: true,
           lastSeenAt: true,
           expiresAt: true,
+          // The client a session was opened for (null = MySSO itself)
+          refreshTokens: {
+            select: { client: { select: { clientId: true, name: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
         },
       });
 
-      res.json({ sessions });
+      const currentSessionId = typeof req.user.sid === 'string' ? req.user.sid : null;
+      res.json({
+        sessions: sessions.map(({ refreshTokens, ...session }) => ({
+          ...session,
+          client: refreshTokens[0]?.client ?? null,
+          current: session.id === currentSessionId,
+        })),
+      });
     } catch (error) {
       console.error('Get sessions error:', error);
       res.status(500).json({ error: 'server_error', error_description: 'Failed to retrieve sessions' });
+    }
+  }
+
+  /**
+   * DELETE /user/sessions
+   * Revoke every session except the one the request comes from
+   */
+  static async revokeOtherSessions(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'unauthorized', error_description: 'User must be authenticated' });
+        return;
+      }
+      const currentSessionId = typeof req.user.sid === 'string' ? req.user.sid : null;
+      if (!currentSessionId) {
+        // Tokens issued before the sid claim existed: refuse rather than log the user out everywhere
+        res.status(400).json({ error: 'invalid_request', error_description: 'Current session unknown, sign in again' });
+        return;
+      }
+
+      const others = await prisma.session.findMany({
+        where: { userId: req.user.sub, revokedAt: null, id: { not: currentSessionId } },
+        select: { id: true },
+      });
+      const ids = others.map((s) => s.id);
+
+      if (ids.length > 0) {
+        await prisma.$transaction([
+          prisma.session.updateMany({ where: { id: { in: ids } }, data: { revokedAt: new Date() } }),
+          prisma.refreshToken.deleteMany({ where: { sessionId: { in: ids } } }),
+        ]);
+        SecurityLogger.logSessionRevocation(req.user.sub, currentSessionId, 'all');
+      }
+
+      res.json({ revoked: ids.length });
+    } catch (error) {
+      console.error('Revoke other sessions error:', error);
+      res.status(500).json({ error: 'server_error', error_description: 'Failed to revoke sessions' });
     }
   }
 
