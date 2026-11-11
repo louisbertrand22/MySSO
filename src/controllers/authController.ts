@@ -492,7 +492,7 @@ export class AuthController {
 
       // 3. SI PAS DE TOKEN : Redirection vers le Login
       if (!token) {
-        const fullAuthorizeUrl = `${config.jwt.issuer}${req.originalUrl}`;
+        const fullAuthorizeUrl = `${config.baseUrl}${req.originalUrl}`; // public API URL (the issuer is a token claim, not always a URL)
         const loginUrl = `${config.frontendUrl}/login?returnTo=${encodeURIComponent(fullAuthorizeUrl)}`;
         res.redirect(loginUrl);
         return;
@@ -504,7 +504,7 @@ export class AuthController {
         decoded = JwtService.verify(token);
       } catch (error) {
         // Si le token est invalide/expiré, on renvoie au login pour renouveler la session
-        const fullAuthorizeUrl = `${config.jwt.issuer}${req.originalUrl}`;
+        const fullAuthorizeUrl = `${config.baseUrl}${req.originalUrl}`; // public API URL (the issuer is a token claim, not always a URL)
         const loginUrl = `${config.frontendUrl}/login?returnTo=${encodeURIComponent(fullAuthorizeUrl)}`;
         res.redirect(loginUrl);
         return;
