@@ -131,6 +131,8 @@ export class AuthService {
     // Access token carries the session id (OIDC "sid") so the account page can tell
     // which session is the current one
     accessTokenPayload.sid = sessionId;
+    // OAuth client the token was issued to (RFC 9068 client_id), used by introspection and revocation
+    if (options?.clientId) accessTokenPayload.client_id = options.clientId;
     const accessToken = JwtService.sign(accessTokenPayload, { expiresIn: "15m" })
 
     // Store refresh token linked to the session

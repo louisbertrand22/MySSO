@@ -59,7 +59,7 @@
 
 ## Infrastructure
 
-- [ ] **Automated DB migrations in CI** — run `prisma migrate deploy` as a pre-deploy step on Render
+- [ ] **Automated DB migrations in CI** — run `prisma migrate deploy` before Vercel deployments (manual today, see VERCEL_DEPLOYMENT.md §4)
 - [ ] **Health check improvements** — include DB connectivity and Prisma status in `/health` response
 - [ ] **Structured logging** — replace `console.log` with a JSON logger (e.g. `pino`) for log drain compatibility
 - [ ] **Rate limiting per user/IP** — tighten limits on `/login` and `/token` endpoints

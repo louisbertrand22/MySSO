@@ -48,6 +48,7 @@ function LoginContent() {
       // attached fields or a plain object. Be defensive and support several shapes.
       let code: string | undefined;
       let emailFromErr: string | undefined;
+      let retryAfter: number | undefined;
 
       if (!err) {
         setError('La connexion a échoué. Réessayez.');
@@ -74,6 +75,7 @@ function LoginContent() {
         const obj = err as Record<string, unknown>;
         code = (obj['code'] as string | undefined) || (obj['error'] as string | undefined);
         emailFromErr = obj['email'] as string | undefined;
+        if (typeof obj['retryAfter'] === 'number') retryAfter = obj['retryAfter'];
       } else if (typeof err === 'string') {
         // Might be a JSON string
         try {
@@ -89,6 +91,12 @@ function LoginContent() {
 
       if (code === 'email_not_verified') {
         setUnverifiedEmail(emailFromErr || email);
+      } else if (code === 'account_locked') {
+        const minutes = Math.max(1, Math.ceil((retryAfter ?? 900) / 60));
+        setError(
+          `Trop de mots de passe erronés : le compte est verrouillé pendant ${minutes} minute${minutes > 1 ? 's' : ''}. ` +
+          'Patientez ou réinitialisez votre mot de passe pour le débloquer.'
+        );
       } else {
         setError(LOGIN_ERRORS[code ?? ''] ?? 'La connexion a échoué. Réessayez.');
       }

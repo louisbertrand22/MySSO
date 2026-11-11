@@ -125,10 +125,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Throw a plain object instead of an Error instance so callers can
         // inspect the shape without a noisy JS Error stack appearing in the
         // dev console for expected API errors (like email_not_verified).
-        const errObj: { message: string; code?: string; email?: string } = {
+        const errObj: { message: string; code?: string; email?: string; retryAfter?: number } = {
           message: data.error_description || data.message || data.error || 'Login failed',
           code: data.error,
           email: data.email,
+          retryAfter: typeof data.retry_after === 'number' ? data.retry_after : undefined,
         };
         throw errObj;
       }

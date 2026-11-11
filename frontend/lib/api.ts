@@ -175,6 +175,25 @@ export class ApiService {
   }
 
   /**
+   * Download every piece of data MySSO stores about the user (GDPR export).
+   * Returns the JSON file and the name suggested by the server.
+   */
+  static async exportData(accessToken: string): Promise<{ blob: Blob; filename: string }> {
+    const response = await authAwareFetch(`${API_URL}/user/export`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error_description || error.error || 'Failed to export data');
+    }
+
+    const disposition = response.headers.get('Content-Disposition') ?? '';
+    const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'mysso-export.json';
+    return { blob: await response.blob(), filename };
+  }
+
+  /**
    * Change password
    */
   static async changePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<void> {

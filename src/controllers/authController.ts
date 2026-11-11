@@ -13,6 +13,7 @@ import { EmailService } from '../services/emailService';
 import { prisma } from '../services/authService';
 import { HashService } from '../services/hashService';
 import { getClientCredentials } from '../utils/clientCredentials';
+import { LoginLockout } from '../services/loginLockout';
 
 async function isEmailVerificationRequired(): Promise<boolean> {
   const row = await prisma.systemSetting.findUnique({ where: { key: 'requireEmailVerification' } });
@@ -85,6 +86,18 @@ export class AuthController {
     }
   }
 
+  /** 429 response for a temporarily locked account, with the time to wait */
+  private static sendLocked(res: Response, lockedUntil: Date): void {
+    const retryAfter = Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000));
+    res.set('Retry-After', String(retryAfter));
+    res.status(429).json({
+      error: 'account_locked',
+      error_description: 'Trop de mots de passe erronés. Le compte est temporairement verrouillé.',
+      retry_after: retryAfter,
+      locked_until: lockedUntil.toISOString(),
+    });
+  }
+
   /**
    * POST /auth/login
    * Login and get access and refresh tokens
@@ -102,13 +115,35 @@ export class AuthController {
       const prisma = AuthService.getPrisma();
       const user = await prisma.user.findUnique({
         where: { email },
-        select: { id: true, email: true, passwordHash: true, isDisabled: true, isAdmin: true, emailVerified: true },
+        select: {
+          id: true, email: true, passwordHash: true, isDisabled: true, isAdmin: true, emailVerified: true,
+          failedLoginAttempts: true, lockedUntil: true,
+        },
       });
+
+      // Temporary lockout after too many wrong passwords. Checked before the password,
+      // so a locked account cannot be brute-forced even with the right password.
+      if (user?.lockedUntil && user.lockedUntil > new Date()) {
+        AuthController.sendLocked(res, user.lockedUntil);
+        return;
+      }
 
       if (!user || !(await AuthService.verifyPassword(password, user.passwordHash))) {
         SecurityLogger.logLoginFailure(email, req.ip, 'invalid_credentials');
+        if (user) {
+          const lockedUntil = await LoginLockout.recordFailure(user.id, user.lockedUntil);
+          if (lockedUntil) {
+            SecurityLogger.logLoginFailure(email, req.ip, 'account_locked');
+            AuthController.sendLocked(res, lockedUntil);
+            return;
+          }
+        }
         res.status(401).json({ error: "Invalid credentials" });
         return;
+      }
+
+      if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+        await LoginLockout.reset(user.id);
       }
 
       if (user.isDisabled) {
@@ -419,6 +454,8 @@ export class AuthController {
       userinfo_endpoint: `${baseUrl}/userinfo`,
       jwks_uri: `${baseUrl}/jwks.json`,
       end_session_endpoint: `${baseUrl}/auth/logout`,
+      revocation_endpoint: `${baseUrl}/revoke`,
+      introspection_endpoint: `${baseUrl}/introspect`,
 
       response_types_supported: ['code'],
       response_modes_supported: ['query'],
@@ -437,6 +474,8 @@ export class AuthController {
       claim_types_supported: ['normal'],
 
       token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post', 'none'],
+      revocation_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post', 'none'],
+      introspection_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
       code_challenge_methods_supported: ['plain', 'S256'],
 
       acr_values_supported: ['urn:mace:incommon:iap:bronze'],
@@ -1345,7 +1384,7 @@ export class AuthController {
       const passwordHash = await HashService.hashPassword(newPassword);
 
       await prisma.$transaction([
-        prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+        prisma.user.update({ where: { id: record.userId }, data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null } }),
         prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
         // Invalidate all sessions and refresh tokens so old devices are logged out
         prisma.session.deleteMany({ where: { userId: record.userId } }),

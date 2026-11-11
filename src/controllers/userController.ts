@@ -347,6 +347,84 @@ export class UserController {
   }
 
   /**
+   * GET /user/export
+   * GDPR data export (right of access / portability): everything MySSO stores about the user,
+   * as a JSON file. Secrets are left out: password hash, tokens and codes.
+   */
+  static async exportData(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'unauthorized', error_description: 'User must be authenticated' });
+        return;
+      }
+      const userId = req.user.sub;
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          emailVerified: true,
+          isAdmin: true,
+          isDisabled: true,
+          createdAt: true,
+          sessions: {
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true, ip: true, userAgent: true, createdAt: true, lastSeenAt: true, expiresAt: true, revokedAt: true,
+              refreshTokens: { select: { client: { select: { clientId: true, name: true } } }, take: 1 },
+            },
+          },
+          consents: {
+            orderBy: { createdAt: 'desc' },
+            select: { scopes: true, createdAt: true, client: { select: { clientId: true, name: true } } },
+          },
+        },
+      });
+      if (!user) {
+        res.status(404).json({ error: 'not_found', error_description: 'User not found' });
+        return;
+      }
+
+      const activity = await prisma.auditLog.findMany({
+        where: { userId },
+        orderBy: { timestamp: 'desc' },
+        take: 1000,
+        select: { timestamp: true, event: true, ip: true, data: true },
+      });
+
+      const { sessions, consents, ...profile } = user;
+      const exportedAt = new Date();
+      const body = {
+        format: 'mysso-export',
+        version: 1,
+        exportedAt: exportedAt.toISOString(),
+        profile,
+        sessions: sessions.map(({ refreshTokens, ...session }) => ({
+          ...session,
+          application: refreshTokens[0]?.client ?? null,
+        })),
+        authorizedApplications: consents.map((c) => ({
+          clientId: c.client.clientId,
+          name: c.client.name,
+          scopes: c.scopes,
+          grantedAt: c.createdAt,
+        })),
+        activity,
+      };
+
+      SecurityLogger.logAdminAction(userId, 'DATA_EXPORT', userId);
+      res.set('Cache-Control', 'no-store');
+      res.set('Content-Disposition', `attachment; filename="mysso-export-${exportedAt.toISOString().slice(0, 10)}.json"`);
+      res.type('application/json').send(JSON.stringify(body, null, 2));
+    } catch (error) {
+      console.error('Data export error:', error);
+      res.status(500).json({ error: 'server_error', error_description: 'Failed to export data' });
+    }
+  }
+
+  /**
    * DELETE /user/account
    * GDPR-compliant self-serve account deletion with full cascade
    */

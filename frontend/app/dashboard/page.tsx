@@ -13,7 +13,7 @@ import { Section, Row } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Segmented } from '@/components/ui/Field';
 import { PageLoader } from '@/components/ui/Feedback';
-import { CopyIcon } from '@/components/ui/Icons';
+import { CopyIcon, DownloadIcon } from '@/components/ui/Icons';
 import { useOverlay } from '@/components/ui/Overlays';
 import { ApiService } from '@/lib/api';
 import { validateUsername } from '@/lib/validation';
@@ -112,6 +112,26 @@ export default function DashboardPage() {
     }
   };
 
+  const [exporting, setExporting] = useState(false);
+  const exportData = async () => {
+    if (!accessToken) return;
+    setExporting(true);
+    try {
+      const { blob, filename } = await ApiService.exportData(accessToken);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast('Export téléchargé.');
+    } catch {
+      toast('L’export n’a pas pu être généré.', 'danger');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const deleteAccount = async () => {
     if (!user || !accessToken) return;
     const ok = await confirm({
@@ -195,6 +215,17 @@ export default function DashboardPage() {
                 <InstallApp />
               </Row>
             </dl>
+          </Section>
+
+          <Section id="donnees" title="Vos données" description="Téléchargez une copie de tout ce que MySSO conserve sur vous (RGPD, art. 15 et 20).">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="max-w-md text-sm text-muted">
+                Profil, sessions, applications autorisées et activité de sécurité, au format JSON. Votre mot de passe et vos jetons n’y figurent pas.
+              </p>
+              <Button variant="secondary" size="sm" loading={exporting} onClick={exportData}>
+                <DownloadIcon size={15} /> Exporter mes données
+              </Button>
+            </div>
           </Section>
 
           <Section title="Supprimer le compte" tone="danger" description="Efface votre compte et toutes les données associées (RGPD, art. 17).">

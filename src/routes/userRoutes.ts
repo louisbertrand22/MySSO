@@ -64,6 +64,23 @@ router.delete('/user/consents/:clientId', authMiddleware, UserController.revokeC
 
 /**
  * @swagger
+ * /user/export:
+ *   get:
+ *     tags: [User]
+ *     summary: Export own data (GDPR)
+ *     description: Downloads everything MySSO stores about the user (profile, sessions, authorized applications, security activity) as JSON. Password hash and tokens are not included.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: JSON file (Content-Disposition attachment)
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/user/export', authMiddleware, UserController.exportData);
+
+/**
+ * @swagger
  * /user/account:
  *   delete:
  *     tags: [User]

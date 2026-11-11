@@ -13,6 +13,15 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
+/** True when the session exists, is not revoked and has not expired */
+export async function isSessionActive(sessionId: string): Promise<boolean> {
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { revokedAt: true, expiresAt: true },
+  });
+  return !!session && !session.revokedAt && session.expiresAt > new Date();
+}
+
 /**
  * JWT Authentication Middleware
  * Verifies the JWT token from the Authorization header
@@ -55,6 +64,13 @@ export async function authMiddleware(
 
     if (dbUser?.isDisabled) {
       res.status(403).json({ error: 'account_disabled', message: 'Your account has been disabled' });
+      return;
+    }
+
+    // A closed session (logout, "Fermer la session", token revocation) invalidates its
+    // access tokens immediately instead of letting them live until they expire
+    if (typeof decoded.sid === 'string' && !(await isSessionActive(decoded.sid))) {
+      res.status(401).json({ error: 'invalid_token', message: 'Session has been revoked' });
       return;
     }
 

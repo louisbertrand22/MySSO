@@ -19,7 +19,7 @@ validateConfig();
 // Create Express app
 const app = express();
 
-// Trust reverse proxy (Render, Railway, etc.) for correct IP detection
+// Trust the reverse proxy (Vercel) for correct IP detection
 app.set('trust proxy', 1);
 
 // Swagger UI — relaxed CSP only for /api-docs
@@ -84,7 +84,7 @@ const globalLimiter = rateLimit({
   message: { error: 'too_many_requests', error_description: 'Too many requests, please slow down' },
   // Health checks are not limited. Refresh grants are limited per client by refreshTokenLimiter:
   // a client backend refreshes for all its users from one IP and would hit this per-IP cap.
-  skip: (req) => req.path === '/health' || isRefreshTokenGrant(req),
+  skip: (req) => req.path === '/health' || isRefreshTokenGrant(req) || req.path === '/revoke' || req.path === '/introspect',
 });
 
 app.use(globalLimiter);
@@ -138,6 +138,20 @@ const refreshTokenLimiter = rateLimit({
   keyGenerator: (req) => {
     const { clientId } = getClientCredentials(req);
     return `refresh:${clientId ?? '-'}:${ipKeyGenerator(req.ip ?? '')}`;
+  },
+});
+
+// POST /revoke and /introspect: called by client backends for all their users,
+// so limited per client_id (and caller IP, for the same reason as refreshTokenLimiter)
+const clientEndpointLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: config.rateLimit.tokenRefreshPerClient,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Too many requests for this client, please try again later' },
+  keyGenerator: (req) => {
+    const { clientId } = getClientCredentials(req);
+    return `client:${clientId ?? '-'}:${ipKeyGenerator(req.ip ?? '')}`;
   },
 });
 
@@ -198,6 +212,7 @@ app.use('/auth/register', registerLimiter);
 app.use('/auth/forgot-password', forgotPasswordLimiter);
 app.use('/auth/resend-verification', resendVerificationLimiter);
 app.use('/token', tokenLimiter, refreshTokenLimiter);
+app.use(['/revoke', '/introspect'], clientEndpointLimiter);
 
 // Mount auth routes
 app.use('/', authRoutes);

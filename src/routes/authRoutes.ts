@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController';
+import { TokenController } from '../controllers/tokenController';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -374,6 +375,71 @@ router.post('/auth/authorize', authMiddleware, AuthController.handleConsent);
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/token', AuthController.token);
+
+/**
+ * @swagger
+ * /revoke:
+ *   post:
+ *     tags: [OAuth2/OIDC]
+ *     summary: Revoke a token (RFC 7009)
+ *     description: |
+ *       Revokes a refresh token or an access token issued to the calling client. The whole
+ *       login it belongs to ends: the session is closed and its other tokens stop working.
+ *       Client authentication: client_secret_basic, client_secret_post, or client_id alone
+ *       for public clients. Always answers 200 for unknown or foreign tokens.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/x-www-form-urlencoded:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token: { type: string }
+ *               token_type_hint: { type: string, enum: [refresh_token, access_token] }
+ *               client_id: { type: string }
+ *               client_secret: { type: string }
+ *     responses:
+ *       200:
+ *         description: Token revoked, or nothing to revoke
+ *       400:
+ *         description: Missing token
+ *       401:
+ *         description: Client authentication failed
+ */
+router.post('/revoke', TokenController.revoke);
+
+/**
+ * @swagger
+ * /introspect:
+ *   post:
+ *     tags: [OAuth2/OIDC]
+ *     summary: Introspect a token (RFC 7662)
+ *     description: |
+ *       Tells a confidential client whether a token is active, and returns its claims.
+ *       Requires client_secret_basic or client_secret_post. Tokens issued to another
+ *       client are reported as inactive.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/x-www-form-urlencoded:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token: { type: string }
+ *               token_type_hint: { type: string, enum: [refresh_token, access_token] }
+ *               client_id: { type: string }
+ *               client_secret: { type: string }
+ *     responses:
+ *       200:
+ *         description: "{ active: false } or { active: true, sub, client_id, scope, exp, iat, ... }"
+ *       400:
+ *         description: Missing token
+ *       401:
+ *         description: Client authentication failed
+ */
+router.post('/introspect', TokenController.introspect);
 
 /**
  * @swagger

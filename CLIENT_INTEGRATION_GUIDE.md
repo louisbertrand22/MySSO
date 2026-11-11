@@ -18,6 +18,8 @@
   - [React Example](#react-example)
 - [PKCE Implementation](#pkce-implementation)
 - [Token Validation](#token-validation)
+  - [Revoking Tokens](#revoking-tokens)
+  - [Introspecting Tokens](#introspecting-tokens)
 - [Security Best Practices](#security-best-practices)
 - [Troubleshooting](#troubleshooting)
 - [FAQ](#faq)
@@ -926,6 +928,62 @@ async function refreshAccessToken(refreshToken) {
 }
 ```
 
+### Revoking Tokens
+
+`POST /revoke` implements OAuth 2.0 Token Revocation (RFC 7009). Call it when the user signs out of
+your application.
+
+- Send the **refresh token** (preferred) or an access token, with `token_type_hint`.
+- Revoking either one ends the whole login: the MySSO session is closed, its refresh tokens are
+  deleted, and its access tokens are rejected right away by `/userinfo` and `/introspect`.
+- Client authentication: `client_secret_basic`, `client_secret_post`, or `client_id` alone for
+  public clients. A client can only revoke tokens it was issued.
+- The answer is `200 {}` even for unknown, expired or foreign tokens: treat it as done.
+
+```javascript
+// Server-side sign-out
+await fetch('https://sso.example.com/revoke', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Authorization': 'Basic ' + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64'),
+  },
+  body: new URLSearchParams({ token: refreshToken, token_type_hint: 'refresh_token' }),
+});
+```
+
+### Introspecting Tokens
+
+`POST /introspect` implements OAuth 2.0 Token Introspection (RFC 7662). Use it from your backend to
+check that a token is still valid, for example before trusting an access token sent by your own
+frontend: unlike local JWT validation, it sees closed sessions, revoked consents and disabled accounts.
+
+- Requires client authentication **with a secret** (`client_secret_basic` or `client_secret_post`).
+- A client only sees tokens issued to it. Any other token, or an invalid one, returns `{ "active": false }`.
+- Responses are not cached by MySSO; cache them briefly on your side if you call it on every request.
+
+```bash
+curl -u "$CLIENT_ID:$CLIENT_SECRET" https://sso.example.com/introspect \
+  -d token="$ACCESS_TOKEN" -d token_type_hint=access_token
+```
+
+```json
+{
+  "active": true,
+  "token_type": "Bearer",
+  "client_id": "your-client-id",
+  "sub": "cm3k2...",
+  "scope": "openid profile email",
+  "username": "camille_r",
+  "iat": 1762850000,
+  "exp": 1762850900,
+  "iss": "https://sso.example.com"
+}
+```
+
+Both endpoints are listed in the discovery document (`revocation_endpoint`, `introspection_endpoint`)
+and share the per-client rate limit of refresh grants (`TOKEN_REFRESH_RATE_LIMIT`, default 1000 per 15 minutes).
+
 ---
 
 ## Security Best Practices
@@ -1018,17 +1076,18 @@ Clear all stored tokens and session data:
 
 ```javascript
 function logout() {
+  const refreshToken = sessionStorage.getItem('refresh_token');
+
   // Clear tokens
   sessionStorage.removeItem('access_token');
   sessionStorage.removeItem('refresh_token');
   sessionStorage.removeItem('id_token');
   
-  // Optional: Call logout endpoint to revoke tokens server-side
-  fetch('https://sso.example.com/auth/logout', {
+  // End the MySSO session too (see "Revoking Tokens"; public clients send client_id)
+  fetch('https://sso.example.com/revoke', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token: refreshToken, token_type_hint: 'refresh_token', client_id: CLIENT_ID }),
   });
   
   // Redirect to login

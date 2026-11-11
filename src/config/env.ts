@@ -37,6 +37,13 @@ export const config = {
     tokenRefreshPerClient: parseInt(process.env.TOKEN_REFRESH_RATE_LIMIT || '1000', 10),
   },
 
+  lockout: {
+    // Wrong passwords in a row before the account is temporarily locked
+    maxAttempts: parseInt(process.env.LOGIN_MAX_ATTEMPTS || '5', 10),
+    // Lock duration in minutes
+    lockMinutes: parseInt(process.env.LOGIN_LOCK_MINUTES || '15', 10),
+  },
+
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT || '587', 10),

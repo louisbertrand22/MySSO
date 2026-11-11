@@ -1,195 +1,102 @@
-# Production Environment Variables Quick Reference
+# Production Environment Variables
 
-This is a quick reference for setting up environment variables for production deployment on Render.
+Reference for the variables of the two Vercel projects. For the deployment procedure, see
+[VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md).
 
-## Required Environment Variables
+Set them in Vercel → project → **Settings → Environment Variables**, then **redeploy**: a variable
+only applies to deployments built after it was added. Use the **Sensitive** type for secrets.
 
-### NODE_ENV
-```
-NODE_ENV=production
-```
-**Purpose**: Enables production mode
-- Enforces HTTPS-only cookies
-- Strict CORS checking
-- Production optimizations
+## Backend
 
-### BASE_URL
+### BASE_URL (required)
 ```
-BASE_URL=https://your-service-name.onrender.com
+BASE_URL=https://sso.louis-bertrand.fr
 ```
-**Purpose**: Your public backend URL
-- Used for JWT issuer claim
-- Used in OpenID Connect discovery
-- Must use HTTPS in production
-- **No trailing slash**
+Public backend URL. Issuer (`iss`) of every token and base of the OpenID Connect discovery document.
+HTTPS, **no trailing slash**.
 
-### DATABASE_URL
-```
-DATABASE_URL=postgresql://user:password@host:port/database
-```
-**Purpose**: PostgreSQL database connection string
-
-**Supabase example** (recommended):
+### DATABASE_URL and DIRECT_URL (required)
 ```
 DATABASE_URL=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true
+DIRECT_URL=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
 ```
+- `DATABASE_URL`: pooled connection used by the running app (serverless functions open many short connections).
+- `DIRECT_URL`: direct connection used by `prisma migrate deploy`.
 
-**Render PostgreSQL example**:
-```
-DATABASE_URL=postgresql://user:password@host.render.com:5432/database
-```
+Copy both from Supabase → **Connect**.
 
-### JWT_SECRET
+### JWT_PRIVATE_KEY (required)
 ```
-JWT_SECRET=your-strong-random-secret-here
+JWT_PRIVATE_KEY=<RSA private key, PEM encoded in base64>
 ```
-**Purpose**: Secret key for signing JWT tokens
-- **Must be changed from default value**
-- Generate with: `openssl rand -base64 32`
-- Keep this secret and never commit to version control
-
-### ALLOWED_ORIGINS
-```
-ALLOWED_ORIGINS=https://your-frontend.com,https://app.example.com
-```
-**Purpose**: CORS allowed origins (comma-separated)
-- Include all your frontend URLs
-- Must be exact matches
-- No trailing slashes
-- No spaces between URLs
-
-## Optional Environment Variables
-
-### PORT
-```
-PORT=3000
-```
-**Purpose**: Server port (Render sets this automatically)
-- Default: 3000
-- Usually not needed as Render provides this
-
-### JWT_EXPIRATION
-```
-JWT_EXPIRATION=3600
-```
-**Purpose**: Access token expiration in seconds
-- Default: 3600 (1 hour)
-
-### JWT_ISSUER
-```
-JWT_ISSUER=https://your-service-name.onrender.com
-```
-**Purpose**: JWT issuer claim
-- Default: Uses BASE_URL value
-- Usually not needed unless you want a different issuer
-
-### KEYS_DIR
-```
-KEYS_DIR=./keys
-```
-**Purpose**: Directory where RSA keys are stored
-- Default: `./keys` in project root
-- Usually not needed
-
-### TOKEN_REFRESH_RATE_LIMIT
-```
-TOKEN_REFRESH_RATE_LIMIT=1000
-```
-**Purpose**: Max `grant_type=refresh_token` requests on `POST /token` per OAuth client (and caller IP), per 15 minutes
-- Default: `1000`
-- Access tokens last 15 minutes, so each active user triggers about one refresh per 15 minutes.
-  Set it above the number of users a client has active at the same time.
-- Refresh grants are exempt from the per-IP limits (global 120/min, `/token` 30/15 min),
-  because a client backend refreshes for all its users from a single IP.
-
-## Example: Complete Production Configuration
-
+Key that signs every token. The public key and `/jwks.json` are derived from it.
+Generate it once:
 ```bash
-# Required
-NODE_ENV=production
-BASE_URL=https://mysso-backend.onrender.com
-DATABASE_URL=postgresql://postgres.abcdefgh:MyPassword123@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
-JWT_SECRET=sK9mN2pQ7vR4xY8zA3bC5dE1fG6hJ0iL
-ALLOWED_ORIGINS=https://my-frontend.com,https://admin.my-frontend.com
-
-# Optional (can be omitted to use defaults)
-JWT_EXPIRATION=3600
-PORT=3000
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0
 ```
+Without it, each build generates a new key and **every deployment logs all users out** (see
+[VERCEL_DEPLOYMENT.md §3](VERCEL_DEPLOYMENT.md#3-signing-key)). Raw PEM is also accepted.
+`JWT_PUBLIC_KEY` can be set too, but is not needed.
 
-## Validation
-
-When you start the server with `NODE_ENV=production`, it will validate:
-
-✅ **BASE_URL is set** - Should not use default localhost value
-
-✅ **BASE_URL uses HTTPS** - Required for security (except localhost)
-
-✅ **JWT_SECRET is changed** - Should not be "changeme"
-
-✅ **ALLOWED_ORIGINS is set** - Required to restrict CORS
-
-If all checks pass, you'll see:
+### ALLOWED_ORIGINS (required)
 ```
-✅ Production configuration validated successfully
+ALLOWED_ORIGINS=https://my-sso.louis-bertrand.fr
 ```
+CORS origins, comma-separated, exact matches, no trailing slash.
 
-If issues are found, you'll see warnings:
+### FRONTEND_URL (required)
 ```
-⚠️  Production Configuration Issues:
-   - BASE_URL should use HTTPS in production for security
-   - JWT_SECRET is using default value - please set a strong secret
-   - ALLOWED_ORIGINS should be set in production to restrict CORS
+FRONTEND_URL=https://my-sso.louis-bertrand.fr
 ```
+Frontend URL, used for redirects (login, consent) and links in emails.
 
-## Security Notes
-
-🔒 **Never commit these values to version control!**
-- Set them in Render dashboard under "Environment" tab
-- Use Render's environment variable encryption
-- JWT_SECRET should be unique and random
-
-🔒 **Use strong secrets**
-- JWT_SECRET: At least 32 characters, random
-- DATABASE_URL: Strong password, limited access
-- Rotate secrets periodically
-
-🔒 **Use HTTPS everywhere**
-- BASE_URL must use HTTPS
-- ALLOWED_ORIGINS should use HTTPS
-- Never use HTTP in production
-
-## Troubleshooting
-
-### Error: "BASE_URL should use HTTPS in production"
-**Fix**: Change BASE_URL from `http://` to `https://`
-
-### Error: "JWT_SECRET is using default value"
-**Fix**: Set JWT_SECRET to a strong random value
-```bash
-# Generate a secret
-openssl rand -base64 32
+### SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
 ```
-
-### Error: "ALLOWED_ORIGINS should be set in production"
-**Fix**: Add your frontend URL(s) to ALLOWED_ORIGINS
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_FROM=MySSO <noreply@example.com>
 ```
-ALLOWED_ORIGINS=https://your-frontend.com
+Needed for email verification and password reset emails.
+
+### TOKEN_REFRESH_RATE_LIMIT (optional, default `1000`)
+Max requests per OAuth client (and caller IP), per 15 minutes, on:
+- `POST /token` with `grant_type=refresh_token`;
+- `POST /revoke` and `POST /introspect`.
+
+Access tokens last 15 minutes, so each active user triggers about one refresh per 15 minutes: set it
+above the number of users a client has active at the same time. These requests are exempt from the
+per-IP limits, because a client backend calls them for all its users from a single IP.
+
+### LOGIN_MAX_ATTEMPTS (optional, default `5`) and LOGIN_LOCK_MINUTES (optional, default `15`)
+After `LOGIN_MAX_ATTEMPTS` wrong passwords in a row, the account is locked for `LOGIN_LOCK_MINUTES`.
+A successful login or a password reset clears the counter.
+
+### Rarely needed
+- `JWT_ISSUER`: overrides the issuer; defaults to `BASE_URL`.
+- `JWT_EXPIRATION`: default lifetime in seconds of tokens that do not set their own (ID tokens). Default `3600`.
+- `KEYS_DIR`: directory of the local development keys. Ignored when `JWT_PRIVATE_KEY` is set.
+- `JWT_SECRET`: not used to sign tokens (RS256 keys are). The startup check only warns when it keeps its default value.
+- `PORT`, `NODE_ENV`: set by Vercel.
+
+## Frontend
+
+### NEXT_PUBLIC_API_URL (required)
 ```
+NEXT_PUBLIC_API_URL=https://sso.louis-bertrand.fr
+```
+Backend URL. Inlined at **build time**: redeploy the frontend after changing it.
 
-### CORS errors in browser
-**Fix**: Ensure your frontend URL is in ALLOWED_ORIGINS
-- Check for typos
-- Verify no trailing slashes
-- Check HTTP vs HTTPS
+### NEXT_PUBLIC_ALLOWED_ORIGINS (optional)
+Extra origins accepted as `returnTo` redirect targets, comma-separated.
 
-## Next Steps
+## Startup checks
 
-1. Set all required environment variables in Render dashboard
-2. Deploy your application
-3. Run database migrations: `npx prisma migrate deploy`
-4. Seed scopes: `node scripts/seed_scopes.js`
-5. Test endpoints: `/health`, `/.well-known/openid-configuration`
-6. Verify logs show: `✅ Production configuration validated successfully`
+In production the backend warns at startup when:
+- `BASE_URL` is missing or not HTTPS;
+- `JWT_SECRET` keeps its default value;
+- `ALLOWED_ORIGINS` is missing;
+- `JWT_PRIVATE_KEY` is missing (logged when the first token is signed or verified).
 
-For complete deployment guide, see [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)
+Find these messages in Vercel → backend project → **Logs**.
