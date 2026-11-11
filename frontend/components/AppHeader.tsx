@@ -103,14 +103,14 @@ export default function AppHeader({ children }: { children?: React.ReactNode }) 
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
-        <div className="flex items-center gap-6">
-          <Logo href="/dashboard" />
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-8">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-6">
+          <Logo href="/dashboard" compact />
           {isAdmin && (
             <nav className="flex items-center gap-1 text-sm" aria-label="Espaces">
               {[
-                { href: '/dashboard', label: 'Compte', active: !inAdmin },
-                { href: '/admin', label: 'Administration', active: inAdmin },
+                { href: '/dashboard', label: 'Compte', short: 'Compte', active: !inAdmin },
+                { href: '/admin', label: 'Administration', short: 'Admin', active: inAdmin },
               ].map((item) => (
                 <Link
                   key={item.href}
@@ -118,7 +118,8 @@ export default function AppHeader({ children }: { children?: React.ReactNode }) 
                   aria-current={item.active ? 'page' : undefined}
                   className={`rounded-md px-2.5 py-1.5 transition-colors ${item.active ? 'bg-surface-2 font-medium text-fg' : 'text-muted hover:bg-surface-2 hover:text-fg'}`}
                 >
-                  {item.label}
+                  <span className="sm:hidden">{item.short}</span>
+                  <span className="hidden sm:inline">{item.label}</span>
                 </Link>
               ))}
             </nav>

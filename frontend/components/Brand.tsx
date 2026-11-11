@@ -11,11 +11,11 @@ export function LogoMark({ size = 28 }: { size?: number }) {
   );
 }
 
-export function Logo({ href = '/', size = 28 }: { href?: string; size?: number }) {
+export function Logo({ href = '/', size = 28, compact = false }: { href?: string; size?: number; compact?: boolean }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-2.5 rounded-md font-semibold tracking-tight text-fg">
+    <Link href={href} className="inline-flex shrink-0 items-center gap-2.5 rounded-md font-semibold tracking-tight text-fg" aria-label="MySSO, accueil">
       <LogoMark size={size} />
-      <span className="text-[15px]">MySSO</span>
+      <span className={`text-[15px] ${compact ? 'hidden sm:inline' : ''}`}>MySSO</span>
     </Link>
   );
 }

@@ -30,7 +30,7 @@ const POINTS = [
 function ConsentPreview() {
   return (
     <div className="relative" aria-hidden="true">
-      <div className="absolute -inset-6 rounded-[28px] bg-dots opacity-70" />
+      <div className="absolute -inset-4 rounded-[28px] bg-dots sm:-inset-6 opacity-70" />
       <div className="relative ml-auto w-full max-w-[340px] rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-[var(--shadow-pop)]">
         <div className="flex items-center gap-2 text-[13px] font-medium text-muted">
           <LogoMark size={18} /> MySSO

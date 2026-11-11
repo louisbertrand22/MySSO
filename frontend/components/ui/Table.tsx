@@ -5,7 +5,9 @@ const ALIGN = { left: 'text-left', right: 'text-right', center: 'text-center' } 
 
 export function Table({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-x-auto">
+    // relative: makes the scroller the containing block of absolutely positioned children
+    // (e.g. sr-only labels). Otherwise they escape it, widen the page and mobile browsers zoom out.
+    <div className="relative overflow-x-auto">
       <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   );

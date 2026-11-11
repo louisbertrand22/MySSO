@@ -162,6 +162,20 @@
   }
 }
 
+/*
+ * iOS Safari zooms into any field whose text is smaller than 16px when it gets focus.
+ * Fields use 14px on desktop, so on small screens they go up to 16px.
+ * Deliberately outside @layer so it beats utility classes such as text-[13px].
+ * (We do not block zoom with maximum-scale: users must still be able to pinch-zoom.)
+ */
+@media (max-width: 639.98px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }

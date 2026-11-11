@@ -36,7 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex flex-1 flex-col">
       <AppHeader>
-        <nav aria-label="Administration" className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-5 sm:px-8">
+        <nav aria-label="Administration" className="relative mx-auto flex max-w-6xl gap-1 overflow-x-auto px-5 sm:px-8">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = href === '/admin' ? pathname === href : pathname.startsWith(href);
             return (
