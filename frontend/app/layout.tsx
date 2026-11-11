@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider, themeInitScript } from "@/contexts/ThemeContext";
 import { OverlayProvider } from "@/components/ui/Overlays";
 import Footer from "@/components/Footer";
+import PwaSetup from "@/components/PwaSetup";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -12,7 +13,11 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: { default: "MySSO", template: "%s · MySSO" },
   description: "Un seul compte pour se connecter à toutes les applications MySSO.",
+  applicationName: "MySSO",
   robots: { index: false, follow: false },
+  // Installed on iOS: own window, name under the icon (the icon itself is app/apple-icon.png)
+  appleWebApp: { capable: true, title: "MySSO", statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -42,6 +47,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <OverlayProvider>
+              <PwaSetup />
               <div className="flex flex-1 flex-col">{children}</div>
               <Footer />
             </OverlayProvider>

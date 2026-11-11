@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import AppHeader, { Avatar, THEME_OPTIONS } from '@/components/AppHeader';
 import ConsentsManager from '@/components/ConsentsManager';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
+import InstallApp from '@/components/InstallApp';
 import { Section, Row } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Segmented } from '@/components/ui/Field';
@@ -261,8 +262,11 @@ export default function DashboardPage() {
 
           <Section id="preferences" title="Préférences">
             <dl>
-              <Row label="Thème" last>
+              <Row label="Thème">
                 <Segmented label="Thème" value={preference} onChange={setPreference} options={THEME_OPTIONS} />
+              </Row>
+              <Row label="Application" last>
+                <InstallApp />
               </Row>
             </dl>
           </Section>

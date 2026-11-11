@@ -109,3 +109,13 @@ export const ChartIcon = (p: IconProps) => (
 export const ExternalIcon = (p: IconProps) => (
   <Icon {...p}><path d="M14 4.5h5.5V10M19.5 4.5L11 13M17 14v4.5a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1H10" /></Icon>
 );
+/** iOS "Share" glyph (square with an arrow going up) */
+export const ShareIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M12 3.5v11M8 7.5l4-4 4 4" /><path d="M8.5 10.5H6.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-2" /></Icon>
+);
+export const DownloadIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5" /><path d="M4.5 19.5h15" /></Icon>
+);
+export const PlusSquareIcon = (p: IconProps) => (
+  <Icon {...p}><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 8.5v7M8.5 12h7" /></Icon>
+);
